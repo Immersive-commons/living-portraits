@@ -1,0 +1,126 @@
+# citations.yaml - resolves every id used in FACTS.md and the slide chunks.
+# kind: repo_file | web | synthesis. All repo paths are relative to the life repo root
+# unless prefixed projects/living-portraits/.
+version: 1
+generated: "2026-06-26"
+
+citations:
+  # ---- A. Living Portraits ----
+  LP-GRAPH:
+    kind: repo_file
+    path: projects/living-portraits/graph_viewer.html
+    note: "Video Knowledge Graph viewer. Nodes=frames (pose + gen prompt). Edges=clips: solid idle self-loops, dashed orange transitions carrying the MJ motion prompt. Footer counts come from data/clips/video_graph.json (runtime; do not hardcode)."
+
+  LP-CAST:
+    kind: repo_file
+    path: projects/living-portraits/gallery.yaml
+    note: "Cast: Phineas Quill (panel A, gold, tragic-grandiose), Seraphina Vane (teal, wry-complicit), MAXX-9 (panel B, magenta). Personas relate to each other."
+
+  LP-HEARTBEAT:
+    kind: repo_file
+    path: projects/living-portraits/AUTONOMY.md
+    also: [projects/living-portraits/director/heartbeat.py, projects/living-portraits/runtime/mind.py, projects/living-portraits/runtime/pathfind.py]
+    note: "heartbeat.py sense->think(GLM glm-4.5-air)->write intent.json + journal. mind.decide() runs pathfind.next_step() BFS over transition edges, forces one hop. Graph is the memory the loop reads/writes."
+
+  LP-PRECEDENCE:
+    kind: repo_file
+    path: projects/living-portraits/AUTONOMY.md
+    also: [projects/living-portraits/runtime/circadian.py, projects/living-portraits/runtime/mind.py]
+    note: "Precedence circadian > mind > random walk. circadian.decide() = scripted bedtime chain on the wall clock; mind.decide() = same contract, LLM goal by day. One graph, multiple traversals."
+
+  LP-STALE:
+    kind: repo_file
+    path: projects/living-portraits/runtime/mind.py
+    note: "DEFAULT_MAX_AGE = 1800.0 (30 min). Stale goal ignored -> degrade to random walk. runtime/ is pure, stdlib-only, import-safe (10fps loop)."
+
+  LP-CONTEXT:
+    kind: repo_file
+    path: projects/living-portraits/director/context.py
+    note: "context_line() pulls IC GET /api/context (FT SF weather+time, Open-Meteo). Fail-soft: swallows all failure, returns ''. No import-time network. 15-min TTL cache. Cannot break a tick."
+
+  LP-BRAIN:
+    kind: repo_file
+    path: projects/living-portraits/AUTONOMY.md
+    also: [projects/living-portraits/director/llm.py]
+    note: "glm-4.5-air via IC z.ai gateway (Anthropic Messages shape), agt_ proxy key with zero IC tool scopes; gateway meters weekly token budget."
+
+  LP-DEPLOY:
+    kind: repo_file
+    path: projects/living-portraits/README.md
+    also: [projects/living-portraits/AUTONOMY.md, projects/living-portraits/lp_watchdog_preview.ps1]
+    note: "Deterministic player, pre-baked clips, no realtime gen in show loop. Runs unattended (hil per AUTONOMY runbook; original box supercommons2 i9-9900K/RTX 2080 Ti). Self-heal watchdog."
+
+  LP-PHASE1:
+    kind: repo_file
+    path: projects/living-portraits/AUTONOMY.md
+    note: "Phase 1 BUILT: pathfind+mind+heartbeat+walker hook+14 tests+live LLM; GLM picks among EXISTING poses. Phase 2 (autonomous pose growth via MJ) is roadmap."
+
+  # ---- B. RAG research ----
+  RAG-FARM:
+    kind: repo_file
+    path: research/embed/README.md
+    note: "Distributed RAG farm. nomic-embed-text per node -> 768-dim vectors -> central Postgres 16 + pgvector (db research, immersivecommons box). papers table; work queue WHERE embedded_at IS NULL; FOR UPDATE SKIP LOCKED."
+
+  RAG-CROSS:
+    kind: repo_file
+    path: research/cross_search.py
+    note: "Retrieval entry point over the farm. python -m research.cross_search."
+
+  RAG-GRAPHRAG:
+    kind: repo_file
+    path: research/AGENTIC_SOTA_v1.md
+    also: [research/SOTA_UPGRADE.md]
+    note: "Names graph-structured memory: Zep temporal KG w/ edge invalidation; HippoRAG hippocampal-index KG via Personalized PageRank for multi-hop; Generative Agents memory stream; Storage-is-not-Memory. HONEST SKIPs: MS-GraphRAG community summaries (~370x token blowup), LLM-reranker (~270x slower). Provenance: HippoRAG2 2502.14802, Qwen3-Embed 2506.05176, Jina late-chunking 2409.04701."
+
+  RAG-CONTRAST:
+    kind: synthesis
+    sources: [LP-GRAPH, RAG-FARM, RAG-GRAPHRAG]
+    note: "Flat RAG = nearest chunks by cosine, no relationships/order/reachability. Context graph = nodes + typed edges, retrieval is a walk: reachability, ordering, multi-hop."
+
+  # ---- C. Asimov / Reflection AI (web, verified 2026-06-26) ----
+  ASIMOV:
+    kind: synthesis
+    sources: [ASIMOV-SEQUOIA, ASIMOV-DOCS, ASIMOV-SILICONANGLE]
+    note: "Asimov = same pattern at industry scale: model a codebase + team knowledge as a graph, reason by retrieving over it."
+
+  ASIMOV-DOCS:
+    kind: web
+    url: "https://docs.reflection.ai/docs/about-asimov"
+    note: "Official: knowledge graph over repos + docs + chat + issues; many small long-context retrievers + one large short-context combiner; VPC deploy."
+
+  ASIMOV-SEQUOIA:
+    kind: web
+    url: "https://www.sequoiacap.com/article/reflection-ai-asimov/"
+    note: "Reflection AI (ex-Google DeepMind) launches Asimov code-comprehension agent. ~70% of eng time is reading/understanding code."
+
+  ASIMOV-SILICONANGLE:
+    kind: web
+    url: "https://siliconangle.com/2025/07/16/reflection-ais-autonomous-coding-agent-asimov-learns-just-code/"
+    note: "Asimov 'learns from more than just code': indexes repos, architecture docs, Slack threads, Jira, commit history into a living knowledge graph. Launched July 2025. Architecture: many small long-context retrievers + one large short-context combiner."
+
+  ASIMOV-TC:
+    kind: web
+    url: "https://techcrunch.com/2025/10/09/reflection-raises-2b-to-be-americas-open-frontier-ai-lab-challenging-deepseek/"
+    note: "Oct 2025: Reflection AI raised $2B at an $8B valuation (Nvidia, Eric Schmidt, Lightspeed, Sequoia, et al.). Funding is optional color for the deck, not a slide claim."
+
+  ASIMOV-WIKI:
+    kind: web
+    url: "https://en.wikipedia.org/wiki/Reflection_AI"
+    note: "Company + funding timeline: founded by ex-Google DeepMind (Misha Laskin, Ioannis Antonoglou). Mar 2025 $130M ($25M seed + $105M Series A) at ~$545M led by Lightspeed + Sequoia; Oct 2025 $2B at $8B."
+
+  ASIMOV-SACRA:
+    kind: web
+    url: "https://sacra.com/c/reflection-ai/"
+    note: "Sacra funding/valuation profile for Reflection AI. Corroborates the Asimov code-research-agent + knowledge-graph framing."
+
+  # ---- D. DNA ----
+  DNA-PALETTE:
+    kind: repo_file
+    path: projects/living-portraits/graph_viewer.html
+    also: [projects/living-portraits/deck/intake.yaml]
+    note: "bg #0d0b10, panel #16131c, ink #e9e4f0, muted #9a90ad, border #2a2433; gold #d4a85a / teal #78ccc2 / magenta #ff3df0 nodes; indigo #8b6cff circadian; transition orange #ff5a3c."
+
+  TALK:
+    kind: repo_file
+    path: projects/living-portraits/deck/intake.yaml
+    note: "Title, tagline, speaker Rayyan Zahid, venues J4ME + VCN."

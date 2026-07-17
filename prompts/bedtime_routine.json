@@ -1,0 +1,218 @@
+{
+  "schema": "living-portrait.bedtime-routine/v2",
+  "version": 2,
+  "supersedes": "sleep_animations.json (v1 slump/standby) -- the night behaviour is now a scripted bedtime ROUTINE, not a single sleep pose.",
+  "note": "At night each character runs a scripted bedtime ROUTINE: an ordered chain of one-shot transitions + dwell-idles that takes it from its awake hub, OFFSCREEN to change, and into its sleep state, where it dwells until wake_hour, then plays the chain in REVERSE for a morning wake-up. The chain is deterministic (a ritual repeats); variety lives in the random dwell-idles at each beat. Each character's routine is derived from its TYPE + chosen METAPHOR: phineas stays a PORTRAIT (he never leaves the painting's logic -- he changes offscreen and sleeps slumped in his own chair, candle out); maxx is a ROOM (the panel is his apartment -- he powers down into a charging pod revealed by a zoom-out). This file is the single source of truth the generator (_shots/_routine_*.py) and the graph wiring (runtime/video_graph.py bedtime block) consume.",
+
+  "_video_gen_best_practices": [
+    "STILL vs MOTION are different prompts. A node STILL is a full descriptive /imagine (re-states subject + setting; identity held by --oref the awake hub). Every CLIP is image-to-video so its motion_prompt is MOTION ONLY -- never re-describe the subject/scene or the model regenerates one.",
+    "LOCK THE CAMERA by default: every motion_prompt ends on the global `camera` directive. The ONLY exception is a transition flagged camera_override:true (maxx's zoom-out to the pod), which carries its own dolly cue. phineas has NO camera moves (he stays a portrait).",
+    "EXPLICIT TEMPORAL ARC, in order (first ... then ... settles). A transition is a one-way arc A->B; an idle is a closed arc whose end state == its start state so --end loop is seamless.",
+    "PACE LOW for sleep/standby (lead with slowly/softly/faintly, tiny amplitude); give the one 'turn in sleep' beat more amplitude; keep awake beats (the toast, the yawn) livelier.",
+    "REVERSE = FREE. The morning wake-up chain is the bedtime chain reversed frame-for-frame (no extra generation); pixel-exact closure.",
+    "OFFSCREEN COSTUME CHANGE: never animate changing. The character exits dressed; the frame sits EMPTY (the 'wait'); it returns already in nightclothes. Moderation-safe and classier.",
+    "MJ-SAFE NEGATIVES ONLY: never put body/clothing/sleepwear words (clothing, nightgown, undress, bare, naked) in a --no list -- the bare token trips MJ's NSFW filter and temp-blocks the account. Nightclothes go in the POSITIVE prompt (a long linen nightshirt, a tasseled nightcap -- fully clothed, period, modest).",
+    "MJ-SAFE MOTION: avoid 'yawn' + 'stretch' in a motion_prompt -- MJ's moderator flags 'yawning/stretching' as possibly-sexual (rejected seraphina+maxx prep beats 2026-05-29). Use other wind-down gestures (sleepy blink, slump, hand to collar). And keep transition motion_prompts MOTION-ONLY (no garment words) -- the end-frame still holds the costume, and re-stating 'nightgown'/'woman' in a motion prompt is more flag-prone."
+  ],
+
+  "camera": "static locked-off camera, fixed frame, no camera movement, no zoom, no pan, no parallax",
+  "motion": "very_low",
+  "night_window": { "start_hour": 21, "end_hour": 6, "note": "Wall-clock [start,end) when the bedtime routine is active. The sequencer re-checks the hour each beat so night can fall / break mid-show. Per-character circadian.bedtime_hour/wake_hour can stagger within this; default keeps both asleep across the deep-night overlap." },
+  "mj_safe_negative_base": "picture frame, gilded frame, ornate frame, border, two people, duplicate, text, watermark, deformed, blurry, extra limbs",
+
+  "characters": {
+    "phineas": {
+      "panel": "A",
+      "phase": 1,
+      "metaphor": "portrait",
+      "hub_pose": "anchor",
+      "type": "period-human (62yo Restoration tragedian)",
+      "type_rationale": "A 17th-century gentleman-actor lives by the painting's logic even at night: he changes offscreen (never on camera) and sleeps slumped in the very chair he poses in -- no bed, no zoom, the frame stays a portrait. High neuroticism keeps his sleep fitful and theatrical (sighs, a dream-mutter, a restless turn).",
+      "disposition": "early-sleeper",
+      "circadian": { "bedtime_hour": 21, "wake_hour": 5 },
+
+      "nodes": {
+        "empty": {
+          "node_image": "data/gen/phineas_empty.png",
+          "oref": null,
+          "still_prompt": "oil painting in the Dutch Golden Age Rembrandt manner, an empty high-backed deep oxblood velvet armchair seen head-and-shoulders height, no person, the vacant seat where a tragedian usually sits, a single warm candle guttering low at the side casting deep chiaroscuro across the empty chair, warm-black void background, oxblood bitumen-black ivory and old-gold palette, visible impasto, fresh varnish no craquelure, edge to edge no picture frame",
+          "mj_negative": "picture frame, ornate frame, border, person, man, face, figure, two people, text, watermark, craquelure",
+          "note": "NO --oref (oref would inject the person). Match the anchor crop/lighting so a2e splices: same head-and-shoulders height, just the empty chair + void."
+        },
+        "nightclothes": {
+          "node_image": "data/gen/phineas_nightclothes.png",
+          "oref": "https://s.mj.run/zdr8emmFqPE",
+          "ow": 200,
+          "still_prompt": "oil painting in the Dutch Golden Age Rembrandt manner, a 62 year old male tragedian wearing a soft floppy tasseled linen NIGHTCAP on his head and a long cream linen nightshirt, standing by his armchair holding a lit brass candlestick, the same long gaunt face with hollow cheeks deep-set sorrowful grey eyes aquiline nose thin pencil moustache and a small pointed beard, wounded grandeur softened by tiredness, single warm candlelit source upper-left deep chiaroscuro, oxblood bitumen-black ivory and old-gold palette, fresh varnish no craquelure, edge to edge no picture frame, head and shoulders filling the frame",
+          "mj_negative": "picture frame, ornate frame, border, bare head, uncovered head, two people, text, watermark, craquelure, eyes closed, daytime, doublet",
+          "note": "--oref the canonical phineas hub holds the FACE while the costume changes to nightshirt+cap. Pick the variant whose face reads unmistakably the same Phineas."
+        },
+        "sleep": {
+          "node_image": "data/gen/phineas_sleep.png",
+          "oref": "https://s.mj.run/zdr8emmFqPE",
+          "ow": 200,
+          "still_prompt": "oil painting in the Dutch Golden Age Rembrandt manner, the 62 year old tragedian wearing a soft floppy tasseled linen nightcap and a long cream linen nightshirt, fast asleep slumped deep in his oxblood velvet armchair, chin sunk onto his chest, eyes closed, head tipped to one shoulder, hands slack in his lap, the candle burned down to a last low ember so the frame is very dark and warm, deepest chiaroscuro, oxblood and bitumen-black palette, fresh varnish no craquelure, edge to edge no picture frame, head and shoulders filling the frame",
+          "mj_negative": "picture frame, ornate frame, border, bare head, uncovered head, two people, text, watermark, craquelure, eyes open, standing, bright, daytime, bed",
+          "note": "Sleeps IN the chair, in nightclothes -- portrait framing, no bed. Replaces the v1 daytime-doublet slump still (which is archived as an optional 'nodding off' pre-beat)."
+        }
+      },
+
+      "routine": [
+        { "beat": "nightcap", "kind": "idle_at", "at": "anchor", "night_only": true, "dwell_loops": 1,
+          "idles": [ { "id": "nightcap_toast", "motion_prompt": "the seated tragedian raises a glass high in a grand theatrical toast to the empty house, holds it a beat with his chin lifted, then drinks deeply and lowers the empty glass to rest in his lap" } ] },
+        { "beat": "exit", "kind": "transition", "label": "a2e", "reverse_label": "e2a", "from": "anchor", "to": "empty",
+          "motion_prompt": "slowly the seated tragedian sets down his glass, heaves himself up with a tired theatrical half-bow to the house, and shuffles off out of the side of the frame, leaving the high-backed armchair empty as the candle gutters" },
+        { "beat": "the_empty_study", "kind": "idle_at", "at": "empty", "dwell_loops": 3,
+          "idles": [
+            { "id": "empty_flicker", "motion_prompt": "the empty armchair sits still in the dark, the low candle flame flickering and guttering, faint warm shadows shifting across the vacant seat, otherwise nothing moves" },
+            { "id": "empty_moth", "motion_prompt": "the empty chair in the dark, a single moth drifts past the guttering candle and the flame wavers and steadies, the vacant seat still" }
+          ] },
+        { "beat": "return_in_nightclothes", "kind": "transition", "label": "e2n", "reverse_label": "n2e", "from": "empty", "to": "nightclothes",
+          "motion_prompt": "the empty chair sits a moment, then the tragedian pads back into the frame from the side already in his cream linen nightshirt and tasseled nightcap, carrying a lit brass candlestick, and stands by the chair facing forward" },
+        { "beat": "bed_prep", "kind": "idle_at", "at": "nightclothes", "dwell_loops": 3,
+          "idles": [
+            { "id": "prep_yawn", "motion_prompt": "the tragedian in his nightcap stretches both arms wide with an enormous theatrical yawn, his mouth gaping, then lowers his arms and rubs one eye, settling" },
+            { "id": "prep_snuff", "motion_prompt": "the tragedian lifts the brass candlestick close and gently licks his fingers and pinches the wick so the flame dips lower and the room darkens, then holds the dimmed candle" },
+            { "id": "prep_goodnight", "motion_prompt": "the capped tragedian turns his head with a tired sniff to glance toward the brighter frame next door, gives a small dismissive goodnight wave of the hand, then faces forward" }
+          ] },
+        { "beat": "to_sleep", "kind": "transition", "label": "n2sl", "reverse_label": "sl2n", "from": "nightclothes", "to": "sleep",
+          "motion_prompt": "the tragedian lowers himself down into the deep armchair, draws the nightshirt close and settles back into the cushions, his head sinking toward his chest as the candle gutters down to a last ember and the frame darkens and he drifts into sleep" },
+        { "beat": "asleep", "kind": "idle_at", "at": "sleep", "dwell": "until_wake",
+          "idles": [
+            { "id": "sleep_breathe", "motion_prompt": "the slumped sleeping tragedian breathes slowly and deeply in the near-dark, his chest softly rising and falling, a faint whistling snore, eyes closed, otherwise completely still" },
+            { "id": "sleep_turn", "motion_prompt": "the sleeping tragedian stirs and his capped head lolls slowly from one shoulder across to the other with a soft murmur, then settles back heavily into deep sleep", "note": "the 'turning in his sleep' beat -- more amplitude, keep rare" },
+            { "id": "sleep_mutter", "motion_prompt": "the sleeping tragedian's lips move faintly as if mouthing a half-remembered line, one slack hand twitching once, then stillness returns in the dark" }
+          ] }
+      ]
+    },
+
+    "maxx": {
+      "panel": "B",
+      "phase": 2,
+      "metaphor": "room",
+      "hub_pose": "idle",
+      "type": "cyborg (does NOT sleep -- end-of-shift power-down into a charging pod)",
+      "type_rationale": "A machine has a home and a routine but no sleep: night = clocking off. The panel is revealed as his grungy neon apartment. He stows his gear, swaggers off to change out of his combat rig, returns off-duty trailing a charge cable, and a zoom-out reveals a charging POD he reclines into until boot. The always-on action hero is last to power down and first to boot.",
+      "disposition": "always-on",
+      "circadian": { "bedtime_hour": 0, "wake_hour": 5 },
+
+      "nodes": {
+        "empty": {
+          "node_image": "data/gen/maxx_empty.png",
+          "oref": null,
+          "still_prompt": "cyberpunk neon-noir 3D render, an empty rain-slick neon street at deep night with no person, most signage gone dark, a single magenta sign flickering, wet reflections, low volumetric haze, dim magenta and cyan palette, edge to edge no picture frame, the spot where a cyborg mercenary usually stands now vacant",
+          "mj_negative": "picture frame, border, person, cyborg, man, figure, two people, text, watermark, daytime, bright, crowd",
+          "note": "NO --oref. The vacant late-night street is maxx's 'empty room'."
+        },
+        "offduty": {
+          "node_image": "data/gen/maxx_offduty.png",
+          "oref": "upload:data/gen/maxx_idle.png",
+          "ow": 150,
+          "still_prompt": "cyberpunk neon-noir 3D render, a lean cyborg relaxing AT HOME OFF-DUTY in a worn sleeveless tank top, a glowing magenta charging cable plugged into a port on his chest, his oversized chrome cybernetic arm hanging loose and powered-down with its circuit veins dimmed to a faint pulse, NO combat poncho and NO arm-cannon, his cyan visor at a tired relaxed dim, slouched in his grungy dim neon apartment, low magenta and cyan rim light, edge to edge no picture frame, three-quarter length centered",
+          "mj_negative": "picture frame, border, oil painting, combat poncho, cloak, armor, arm cannon, weapon, gun, two people, extra arms, text, watermark, daytime, bright lights",
+          "note": "ow LOWERED to 150 + tank/cable LED + combat gear negated -- per feedback_mj_oref_ow_suppresses_wardrobe, high ow pinned his combat look and the downtime change wouldn't render. --oref maxx_idle.png (upload at gen time) still holds the face/identity."
+        },
+        "pod": {
+          "node_image": "data/gen/maxx_pod.png",
+          "oref": "upload:data/gen/maxx_idle.png",
+          "ow": 250,
+          "still_prompt": "cyberpunk neon-noir 3D render, WIDE shot of a grungy neon apartment with a vertical charging pod / sleep capsule glowing softly, the lean cyborg reclined inside behind the fogged canopy in low-power standby, his circuit veins a dim slow cyan pulse, a holographic CHARGING readout glowing beside the pod, the rest of the room dark, low volumetric haze, dim cyan and magenta palette, edge to edge no picture frame",
+          "mj_negative": "picture frame, border, oil painting, two people, text, watermark, daytime, bright, crowd",
+          "note": "WIDE -- this is the zoom-out reveal (the n2pod transition is camera_override). maxx_idle.png as --oref for the figure in the pod."
+        }
+      },
+
+      "routine": [
+        { "beat": "last_call", "kind": "idle_at", "at": "idle", "night_only": true, "dwell_loops": 1,
+          "idles": [ { "id": "final_swig", "motion_prompt": "MAXX knocks back a glowing coolant flask in a cocky end-of-shift salute, smirks, and tosses the empty flask aside, a neon hover-bus gliding past behind" } ] },
+        { "beat": "clock_off", "kind": "transition", "label": "i2e", "reverse_label": "e2i", "from": "idle", "to": "empty",
+          "motion_prompt": "MAXX stows his arm-cannon and shrugs off his combat poncho, gives a two-finger salute, and swaggers off out of the side of the frame, leaving the rain-slick neon street empty as the signage dims" },
+        { "beat": "quiet_street", "kind": "idle_at", "at": "empty", "dwell_loops": 3,
+          "idles": [
+            { "id": "street_rain", "motion_prompt": "the empty neon street at night, rain falling through the dim magenta glow, a single sign flickering, puddles rippling, no one there" },
+            { "id": "street_bus", "motion_prompt": "the empty late-night street, a single lone neon hover-bus drifts slowly past and away into the dark, its lights sliding across the wet road, then quiet" }
+          ] },
+        { "beat": "return_offduty", "kind": "transition", "label": "e2n", "reverse_label": "n2e", "from": "empty", "to": "offduty",
+          "motion_prompt": "the empty street a moment, then MAXX ambles back into the frame off-duty in a worn tank with a glowing charge cable trailing from his dimmed cyber-arm, and stands relaxed facing forward" },
+        { "beat": "dock_prep", "kind": "idle_at", "at": "offduty", "dwell_loops": 3,
+          "idles": [
+            { "id": "prep_plug", "motion_prompt": "MAXX plugs the glowing charge cable into a port on his chest with a clunk, a ring of indicator lights coming up, then drops his shoulders" },
+            { "id": "prep_diag", "motion_prompt": "a holographic SLEEP MODE diagnostic scrolls up around MAXX's head and his visor dims a step as systems wind down, his arm servos folding to rest" },
+            { "id": "prep_yawn", "motion_prompt": "MAXX's neon trails stutter and dim a notch as his shoulders slump loose and a small alarm-clock HUD blinks 05:00" }
+          ] },
+        { "beat": "into_pod", "kind": "transition", "label": "n2pod", "reverse_label": "pod2n", "from": "offduty", "to": "pod", "camera_override": true,
+          "motion_prompt": "the view draws back to reveal a charging pod in the grungy neon apartment as MAXX steps in and reclines, the pod canopy lowering and fogging with a soft cyan standby glow; slow dolly-back camera move" },
+        { "beat": "charging", "kind": "idle_at", "at": "pod", "dwell": "until_wake",
+          "idles": [
+            { "id": "pod_pulse", "motion_prompt": "the charging pod glows a slow soft cyan pulse like the breathing of a sleeping machine, the holographic CHARGING readout ticking upward, the dark apartment quiet around it, otherwise still" },
+            { "id": "pod_glitch", "motion_prompt": "a brief glitch twitch ripples through the reclined cyborg in the pod, a servo resettles and the canopy flickers once before settling back to the soft cyan standby glow", "note": "the cyborg's 'turning in his sleep' analog" },
+            { "id": "pod_bus", "motion_prompt": "outside the apartment window a lone neon hover-bus drifts past, its light gliding across the fogged pod canopy, while the cyborg stays motionless charging" }
+          ] }
+      ]
+    },
+
+    "seraphina": {
+      "panel": "B",
+      "phase": 3,
+      "metaphor": "portrait",
+      "hub_pose": "anchor",
+      "type": "period-human (26yo Restoration actress)",
+      "type_rationale": "Young, warm, low-neuroticism -- she sleeps easily and gracefully. Like Phineas she stays a PORTRAIT: changes offscreen and dozes where she sits, head on her hand, footlights banked to embers -- the contented foil to his fitful slumber. Authored 2026-05-29; MAXX holds panel B so she is not live, but panel-ready.",
+      "disposition": "late-sleeper",
+      "circadian": { "bedtime_hour": 23, "wake_hour": 7 },
+
+      "nodes": {
+        "empty": {
+          "node_image": "data/gen/seraphina_empty.png",
+          "oref": null,
+          "still_prompt": "English Restoration portrait in the Lely manner, an empty teal-and-mint upholstered green-room chair, no person, the seat where an actress usually sits now vacant, the warm footlights dimmed to a low amber ember glow, soft teal-green green-room haze behind, fresh varnish no craquelure, edge to edge no picture frame, head and shoulders height",
+          "mj_negative": "picture frame, ornate frame, oval frame, border, person, woman, face, figure, two people, text, watermark",
+          "note": "NO --oref (would inject the person). Match the seraphina_anchor crop/lighting so a2e splices."
+        },
+        "nightclothes": {
+          "node_image": "data/gen/seraphina_nightclothes.png",
+          "oref": "upload:data/gen/seraphina_anchor.png",
+          "ow": 180,
+          "still_prompt": "English Restoration portrait Lely manner, a 26 year old actress wearing a frilled white linen sleeping cap and a heavy high-necked quilted dressing robe tied closed at the waist, fully covered, holding a small brass candlestick, the same bright oval face with a knowing arched brow lively grey-green eyes and a beauty mark near the lip, a few chestnut ringlets loose under the cap, the footlights dimmed to a low amber ember, soft teal-green haze, fresh varnish no craquelure, edge to edge no picture frame, head and shoulders filling the frame",
+          "mj_negative": "picture frame, ornate frame, oval frame, border, bare head, uncovered head, two people, text, watermark, eyes closed, daytime",
+          "note": "ow 180 + cap/gown LED per feedback_mj_oref_ow_suppresses_wardrobe. --oref the uploaded seraphina_anchor holds her face."
+        },
+        "sleep": {
+          "node_image": "data/gen/seraphina_sleep.png",
+          "oref": "upload:data/gen/seraphina_anchor.png",
+          "ow": 180,
+          "still_prompt": "English Restoration portrait Lely manner, a 26 year old actress asleep wearing a frilled white linen sleeping cap and a heavy high-necked quilted dressing robe tied closed at the waist, fully covered, her head tipped to rest gently against her own hand, eyes softly closed, a peaceful content half-smile, a few chestnut ringlets fallen loose across her cheek, the footlights down to a dim amber ember, soft teal-green haze, fresh varnish no craquelure, edge to edge no picture frame, head and shoulders filling the frame",
+          "mj_negative": "picture frame, ornate frame, oval frame, border, bare head, uncovered head, two people, text, watermark, eyes open, standing, bright, daytime, bed"
+        }
+      },
+
+      "routine": [
+        { "beat": "goodnight", "kind": "idle_at", "at": "anchor", "night_only": true, "dwell_loops": 1,
+          "idles": [ { "id": "goodnight_curtsy", "motion_prompt": "the actress gives the empty house a warm playful goodnight, a little seated bow of the head and a blown kiss to the audience, then settles back with a fond smile" } ] },
+        { "beat": "exit", "kind": "transition", "label": "a2e", "reverse_label": "e2a", "from": "anchor", "to": "empty",
+          "motion_prompt": "the actress rises with a graceful stretch, gathers her shawl, and slips off out of the side of the frame, leaving the teal-and-mint chair empty as the footlights dim" },
+        { "beat": "the_empty_greenroom", "kind": "idle_at", "at": "empty", "dwell_loops": 3,
+          "idles": [
+            { "id": "empty_glow", "motion_prompt": "the empty green-room chair sits still, the dimmed amber footlights flickering softly across the vacant seat, faint haze drifting, otherwise nothing moves" },
+            { "id": "empty_curtain", "motion_prompt": "the empty chair in the low glow, a stage curtain at the edge stirs gently in a draft and settles, the vacant seat still" }
+          ] },
+        { "beat": "return_in_nightclothes", "kind": "transition", "label": "e2n", "reverse_label": "n2e", "from": "empty", "to": "nightclothes",
+          "motion_prompt": "the empty chair sits a moment, then the actress walks back into the frame from the side carrying a small lit candlestick, and stands beside her chair facing forward" },
+        { "beat": "wind_down", "kind": "idle_at", "at": "nightclothes", "dwell_loops": 3,
+          "idles": [
+            { "id": "prep_yawn", "motion_prompt": "the actress blinks slowly and sleepily, brings a hand to rest at her collar, and settles with a soft tired smile" },
+            { "id": "prep_unpin", "motion_prompt": "the actress lightly pats her sleeping cap into place and tucks a stray ringlet behind her ear, then folds her hands with a calm smile" },
+            { "id": "prep_goodnight", "motion_prompt": "the actress turns her head toward the brighter frame next door with a small smile and a little goodnight nod, then faces forward" }
+          ] },
+        { "beat": "to_sleep", "kind": "transition", "label": "n2sl", "reverse_label": "sl2n", "from": "nightclothes", "to": "sleep",
+          "motion_prompt": "the actress settles comfortably back into her armchair, sets the candlestick on the side table, and leans her head onto her hand as her eyes gently close and the footlights fade to embers" },
+        { "beat": "asleep", "kind": "idle_at", "at": "sleep", "dwell": "until_wake",
+          "idles": [
+            { "id": "sleep_breathe", "motion_prompt": "the sleeping actress breathes slow and easy, her shoulders gently rising and falling, a peaceful content expression, eyes closed, her head resting on her hand, otherwise still" },
+            { "id": "sleep_turn", "motion_prompt": "the sleeping actress stirs and nestles her cheek more deeply into her hand with a soft breath, her loose ringlets shifting, then settles back into a contented sleep" },
+            { "id": "sleep_smile", "motion_prompt": "a faint amused smile flickers across the actress's sleeping face as if at a pleasant dream, then softens back to calm, eyes closed" }
+          ] }
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+# runtime / generated state (never committed)
+data/
+_shots/
+_article/
+*.log
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# secrets / local config
+.env
+.env.*
+*.local
+zai_key.txt

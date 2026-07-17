@@ -1,0 +1,45 @@
+# panels.yaml -- the physical LED-panel layout for the living-portraits player.
+#
+# This is the single edit point for panel GEOMETRY + per-panel palette. The
+# player (player.py) builds its PANELS dict + window size from here via
+# runtime/panels.py:load_panels(), so moving a panel, resizing it, or recolour-
+# ing it is a config change -- NOT a code change.
+#
+# WHY this file exists (the migration): a new host's desktop resolution and its
+# LED sending-card's frame-grab origin may differ from supercommons2's. The
+# window is pinned to the desktop top-left (0,0) and sized to the bounding box
+# of every panel rect below; each panel is a sub-rect the sending card grabs.
+# When a card grabs a different origin/size, you re-measure here, not in code.
+#
+# SHAPE (consumed by runtime/panels.py, then player.py):
+#   panels:                       ordered list -- order is the draw order
+#     - name:   "A"               panel id the director maps a character onto
+#       rect:   [x, y, w, h]      sub-rect within the window, desktop pixels
+#       bg:     [r, g, b]         fallback tint (0-255) when no art is present
+#       accent: [r, g, b]         border / liveness-dot / title colour (0-255)
+#       char:   "phineas"         DEFAULT character slug for this panel*
+#
+#   * char is a per-panel DEFAULT only. The live per-panel character still comes
+#     from the director's beat (data/stage_state.json -> panels.<name>.char);
+#     this slug is a hint for tooling/preview and a sensible empty-state, it does
+#     NOT override a beat. Lowercase slug, matching prompts/characters/<slug>.md.
+#
+# WINDOW_W / WINDOW_H are DERIVED (max of x+w / y+h over all rects) -- there is
+# deliberately no window size to edit here; it always equals the panels' bounds.
+#
+# These seed values are the EXACT supercommons2 layout player.py shipped with:
+#   A  0,0   256x256  maroon/gold  (phineas)   <- LED screen 1, the larger frame
+#   B  256,0 192x192  teal/mint    (seraphina) <- LED screen 2, smaller+brighter
+# so a missing/unreadable panels.yaml degrades to today's hardcoded look.
+version: 1
+panels:
+  - name: "A"
+    rect: [0, 0, 256, 256]
+    bg: [38, 14, 16]
+    accent: [210, 170, 90]
+    char: "phineas"
+  - name: "B"
+    rect: [256, 0, 192, 192]
+    bg: [12, 26, 28]
+    accent: [120, 200, 190]
+    char: "seraphina"

@@ -1,0 +1,23 @@
+{
+  "schema": "living-portrait.idle-set/v2",
+  "note": "Generic NPC idle motions for the MJ omni-ref + start/end-loop video flow (kernel.midjourney.generate_video). MOTION-ONLY prompts that LEAD with 'subtle' so MJ produces gentle, visible-but-calm idle movement -- v1's plain 'breathes slowly' came out near-static, especially for Seraphina. Every clip starts AND ends on the anchor (start=end frame), so all variants are interchangeable self-loops in the video graph. Character-agnostic ('the figure'). MJ returns 4 VARIANTS per submit -- keep all 4 as separate variations and let the player pick at random.",
+  "motion": "low",
+  "idles": [
+    {
+      "id": "breathe",
+      "motion_prompt": "subtle gentle idle motion: the figure breathes, chest and shoulders softly rising and falling, a faint natural sway, an occasional slow blink, calm and minimal"
+    },
+    {
+      "id": "look_around",
+      "motion_prompt": "subtle idle motion: the figure slowly turns their head to glance to one side and then the other, eyes calmly scanning, then settles facing forward, gentle and unhurried"
+    },
+    {
+      "id": "settle",
+      "motion_prompt": "subtle idle motion: the figure shifts their weight and settles, one hand drifting up to adjust their collar then lowering it, a small comfortable readjustment, gentle"
+    },
+    {
+      "id": "ponder",
+      "motion_prompt": "subtle idle motion: the figure tilts their head a little as if in quiet thought, a slow blink and a faint nod, brow softening, a calm breath"
+    }
+  ]
+}

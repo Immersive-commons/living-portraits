@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Living Portraits — Video Knowledge Graph</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root { --bg:#0d0b10; --panel:#16131c; --ink:#e9e4f0; --muted:#9a90ad; --gold:#d4a85a; --teal:#78ccc2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; border-bottom:1px solid #2a2433; }
+  header h1 { margin:0; font-size:18px; letter-spacing:.02em; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:12px; max-width:80ch; }
+  .wrap { display:flex; height:calc(100vh - 74px); }
+  #netwrap { flex:1; min-width:0; position:relative; }
+  #net { position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, #181420, #0d0b10); }
+  #legend { position:absolute; top:12px; left:12px; z-index:5; background:rgba(13,11,16,.82); border:1px solid #2a2433; border-radius:10px; padding:10px 12px; font-size:12px; backdrop-filter:blur(4px); }
+  #legend .t { font-size:10px; letter-spacing:.06em; color:var(--muted); text-transform:uppercase; }
+  #legend .row { display:flex; align-items:center; gap:7px; margin-top:5px; }
+  #legend hr { border:none; border-top:1px solid #2a2433; margin:8px 0 4px; }
+  .dot { width:11px; height:11px; border-radius:50%; box-shadow:0 0 9px currentColor; flex:none; }
+  .ln { width:22px; height:0; flex:none; }
+  .ln.dash { border-top:3px dashed #ff5a3c; }
+  .ln.solid { border-top:3px solid #8a7fa0; }
+  #relayout { margin-top:10px; width:100%; background:#221c2e; color:var(--ink); border:1px solid #3a3147; border-radius:7px; padding:5px; font-size:11px; cursor:pointer; }
+  #relayout:hover { background:#2c2540; }
+  #detail { width:380px; background:var(--panel); border-left:1px solid #2a2433; padding:16px; overflow:auto; }
+  #detail h2 { margin:0 0 4px; font-size:16px; }
+  #detail .tag { display:inline-block; font-size:11px; color:var(--muted); border:1px solid #2a2433; border-radius:99px; padding:2px 9px; margin:0 4px 4px 0; }
+  #detail .prompt { background:#0d0b10; border:1px solid #2a2433; border-radius:8px; padding:10px; color:#cfc6dd; font-size:12.5px; white-space:pre-wrap; margin:8px 0; }
+  #detail .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-top:14px; }
+  #detail img { width:100%; border-radius:8px; display:block; margin:6px 0; border:1px solid #2a2433; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .grid figure { margin:0; }
+  .grid figcaption { font-size:11px; color:var(--muted); text-align:center; }
+  .hint { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Living Portraits — Video Knowledge Graph</h1>
+  <p>Nodes are <b>frames</b> (a pose, carrying its still + the SDXL <i>gen prompt</i>). Edges are <b>video clips</b>: gold/teal <b>self-loops</b> are idles on a pose; <b>red</b> edges are <b>pose transitions</b> tying one frame to a different one, each carrying the MJ <i>motion prompt</i>. The player random-walks this graph by day. A separate <b>circadian</b> layer (from <code>bedtime_routine.json</code>) triggers the <b style="color:#b7a4ff">🌙 bedtime routine</b> on the wall-clock — those nodes + chain edges are <b style="color:#b7a4ff">indigo</b>; click a 🌙 node for its trigger window + dwell. Click any node or edge to inspect prompts + play the clips.</p>
+</header>
+<div class="wrap">
+  <div id="netwrap">
+    <div id="net"></div>
+    <div id="legend">
+      <span class="t">characters</span>
+      <div class="row"><span class="dot" style="color:#d4a85a;background:#d4a85a"></span> Phineas — faded tragedian</div>
+      <div class="row"><span class="dot" style="color:#78ccc2;background:#78ccc2"></span> Seraphina</div>
+      <div class="row"><span class="dot" style="color:#ff3df0;background:#ff3df0"></span> MAXX-9 — cyborg</div>
+      <hr>
+      <div class="row"><span class="ln solid"></span> idle loop (self)</div>
+      <div class="row"><span class="ln dash"></span> transition (pose → pose)</div>
+      <hr>
+      <div class="row"><span class="dot" style="color:#8b6cff;background:#8b6cff"></span> 🌙 bedtime node / chain</div>
+      <div class="row" style="color:#9a90ad;font-size:11px">fires on a clock — click a 🌙 node</div>
+      <button id="relayout">⟳ re-layout</button>
+    </div>
+  </div>
+  <div id="detail"><p class="hint">Loading graph…</p></div>
+</div>
+<script>
+const PALETTE = { phineas:"#d4a85a", seraphina:"#78ccc2", maxx:"#ff3df0" };
+const BT_COL = "#8b6cff";                 // indigo = the bedtime / circadian layer
+const detail = document.getElementById('detail');
+// circadian (trigger) layer, populated from bedtime_routine.json after fetch:
+let CIRC = {};        // "<char>:<pose>" -> {window, dwell, beat, idles, nightOnly, isSleep, metaphor}
+let WINDOWS = {};     // char -> {bed, wake, metaphor}
+let CHAINS = {};      // char -> ordered pose chain
+let BTLABELS = {};    // edge label -> char (i.e. this edge is part of a bedtime routine)
+function fmtH(h){ return String(((+h%24)+24)%24).padStart(2,'0')+':00'; }
+
+function nodeDetail(id, n) {
+  const circ = CIRC[id];
+  let circHtml = '';
+  if (circ) {
+    const dwell = circ.isSleep ? 'dwells here until wake (the long overnight rest)'
+                               : `dwell ${circ.dwell} idle-loop(s), then advance along the chain`;
+    circHtml = `<div class="lbl">⏰ circadian trigger</div><div class="prompt">fires during the night window <b>${circ.window}</b>
+beat: ${circ.beat}${circ.nightOnly?'  (night-only opener)':''}
+${dwell}
+idles here: ${circ.idles.join(', ')}</div>`;
+  }
+  detail.innerHTML = `<h2>${(circ?'🌙 ':'')+id}</h2>
+    <span class="tag">character: ${n.character}</span><span class="tag">pose: ${n.pose}</span>${circ?`<span class="tag" style="border-color:${BT_COL};color:#b7a4ff">bedtime</span>`:''}
+    ${circHtml}
+    <div class="lbl">anchor image</div><img src="${n.image}" alt="${id}" onerror="this.style.opacity=.3">
+    <div class="lbl">gen prompt (semantic metadata)</div><div class="prompt">${(n.gen_prompt||'').replace(/</g,'&lt;')}</div>`;
+}
+function edgeDetail(group) {
+  const vs = group.variants.sort((a,b)=>a.variant-b.variant);
+  const prov = group.mj_job ? `job ${group.mj_job.slice(0,8)}`
+             : (group.label==='sitdown' ? 'derived (reverse of stand-up)' : '');
+  const kindTag = group.kind==='transition'
+    ? `<span class="tag" style="border-color:#e86f4e;color:#e86f4e">transition</span>`
+    : `<span class="tag">idle loop</span>`;
+  detail.innerHTML = `<h2>${group.character} · ${group.label}</h2>
+    ${kindTag}<span class="tag">${group.from.split(':')[1]} → ${group.to.split(':')[1]}</span><span class="tag">${vs.length} variants</span>${prov?`<span class="tag">${prov}</span>`:''}
+    <div class="lbl">motion prompt (semantic metadata)</div><div class="prompt">${(group.motion_prompt||'').replace(/</g,'&lt;')}</div>
+    <div class="lbl">clips${group.kind==='transition'?' (plays once)':' (looping)'}</div>
+    <div class="grid">${vs.map(e=>`<figure><img src="${e.gif}" loading="lazy" onerror="this.style.opacity=.2"><figcaption>v${e.variant}</figcaption></figure>`).join('')}</div>`;
+}
+
+Promise.all([
+  fetch('data/clips/video_graph.json').then(r=>r.json()),
+  fetch('prompts/bedtime_routine.json').then(r=>r.json()).catch(()=>({characters:{}}))
+]).then(([g, bt]) => {
+  // ---- circadian (trigger) layer: derive the 'when' from bedtime_routine.json ----
+  Object.entries(bt.characters||{}).forEach(([cid,c]) => {
+    const cc = c.circadian||{}; const win = fmtH(cc.bedtime_hour)+'–'+fmtH(cc.wake_hour);
+    WINDOWS[cid] = { bed:cc.bedtime_hour, wake:cc.wake_hour, metaphor:c.metaphor };
+    CHAINS[cid] = [c.hub_pose];
+    (c.routine||[]).forEach(b => {
+      if (b.kind==='transition') { BTLABELS[b.label]=cid; BTLABELS[b.reverse_label]=cid; CHAINS[cid].push(b.to); }
+      else {
+        CIRC[cid+':'+b.at] = { window:win, dwell:(b.dwell!=null?b.dwell:b.dwell_loops), beat:b.beat,
+          idles:(b.idles||[]).map(i=>i.id), nightOnly:!!b.night_only, isSleep:(b.dwell==='until_wake'), metaphor:c.metaphor };
+        (b.idles||[]).forEach(i=>{ BTLABELS[i.id]=cid; });
+      }
+    });
+  });
+  const nodes = new vis.DataSet(Object.entries(g.nodes).map(([id,n]) => {
+    const c = PALETTE[n.character] || '#8a8a8a';
+    const isBT = !!CIRC[id];
+    return { id, label:(isBT?'🌙 ':'')+id.split(':')[0]+'\n'+id.split(':')[1], shape:'circularImage', image:n.image,
+      size:54, mass:5, borderWidth:isBT?6:4, color:{border:isBT?BT_COL:c, highlight:{border:'#ffffff'}},
+      font:{color:'#e9e4f0', size:13, multi:false, strokeWidth:3, strokeColor:'#0d0b10'},
+      shadow:{enabled:true, color:isBT?BT_COL:c, size:26, x:0, y:0}, _n:n };
+  }));
+  // group edges by from|label -> one labelled edge per behaviour, carrying its variants
+  const groups = {};
+  g.edges.forEach(e => { const k=e.from+'|'+e.label;
+    if(!groups[k]) groups[k]={...e, variants:[]}; groups[k].variants.push(e); });
+  const selfN = {};   // fan self-loops out around each node so they don't stack
+  const edges = new vis.DataSet(Object.values(groups).map((grp,i) => {
+    const t = grp.kind==='transition';
+    const isBT = !!BTLABELS[grp.label];               // part of a bedtime routine?
+    const c = PALETTE[grp.character] || '#8a8a8a';
+    const col = isBT ? BT_COL : (t?'#ff5a3c':c);
+    const e = { id:'E'+i, from:grp.from, to:grp.to, label:grp.label, _g:grp,
+      color:{color: col, highlight:'#ffffff', hover:'#ffffff'},
+      width: t?3.5:1.6, dashes: (t||isBT)?[10,7]:false,
+      font:{color: isBT?'#b7a4ff':(t?'#ff7a5c':c), size: t?13:11, strokeWidth:0, background:'#0d0b10'},
+      arrows: t?{to:{enabled:true, scaleFactor:1.15}} : {to:{enabled:true, scaleFactor:0.7}},
+      smooth:{type:'curvedCW', roundness:(t?0.28:0.0)+0.12*(i%4)} };
+    if (grp.from === grp.to) {          // idle self-loop -> big, fanned around the node
+      const k = (selfN[grp.from] = (selfN[grp.from]||0)); selfN[grp.from]++;
+      e.selfReference = { size: 62, angle: k*0.85 + 0.3, renderBehindTheNode:false };
+    }
+    return e;
+  }));
+  const net = new vis.Network(document.getElementById('net'), {nodes,edges}, {
+    physics:{ enabled:true, stabilization:{iterations:320},
+      barnesHut:{ gravitationalConstant:-14000, centralGravity:0.18, springLength:280,
+        springConstant:0.035, damping:0.55, avoidOverlap:1 } },
+    nodes:{ shadow:true },
+    interaction:{ hover:true, hoverConnectedEdges:true, dragNodes:true, tooltipDelay:120 }
+  });
+  // strong repulsion settles a clean spread, THEN freeze physics so dragging a node
+  // never pulls its neighbours into a mesh. The re-layout button re-runs it on demand.
+  net.once('stabilizationIterationsDone', () => net.setOptions({physics:false}));
+  document.getElementById('relayout').onclick = () => {
+    net.setOptions({physics:true}); net.stabilize();
+    net.once('stabilizationIterationsDone', () => net.setOptions({physics:false}));
+  };
+  const gv = Object.values(groups);
+  const nTrans = gv.filter(x=>x.kind==='transition').length;
+  const nChars = new Set(Object.values(g.nodes).map(n=>n.character)).size;
+  const sched = Object.entries(WINDOWS).map(([cid,w]) =>
+    `<b style="color:${PALETTE[cid]||'#ccc'}">${cid}</b> <span style="color:#9a90ad">(${w.metaphor})</span> — asleep <b style="color:#b7a4ff">${fmtH(w.bed)}–${fmtH(w.wake)}</b><br><span style="color:#9a90ad;font-size:11.5px">${(CHAINS[cid]||[]).join(' → ')}</span>`
+  ).join('<br><br>');
+  detail.innerHTML = `<div class="lbl">⏰ circadian schedule — the "when"</div>
+    <div class="prompt">${sched||'(bedtime_routine.json not loaded — serve from project root)'}</div>
+    <p class="hint">🌙 indigo nodes &amp; chain edges are the bedtime routine; everything else is the daytime random walk. Click a 🌙 node for its trigger window + dwell, or any edge to read its motion prompt.<br><br>${nodes.length} frames · ${g.edges.length} clips · ${gv.length-nTrans} idle + ${nTrans} transition · ${nChars} characters. Drag nodes freely; physics freezes after layout.</p>`;
+  net.on('click', p => {
+    if(p.nodes.length){ const id=p.nodes[0]; nodeDetail(id, nodes.get(id)._n); }
+    else if(p.edges.length){ const e=edges.get(p.edges[0]); if(e&&e._g) edgeDetail(e._g); }
+  });
+}).catch(e => { detail.innerHTML = `<p class="hint">Failed to load data/clips/video_graph.json — serve from the project root (python -m http.server).<br>${e}</p>`; });
+</script>
+</body>
+</html>

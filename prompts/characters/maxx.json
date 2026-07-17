@@ -1,0 +1,61 @@
+{
+  "schema": "living-portrait.character/v1",
+  "id": "maxx",
+  "name": "MAXX-9",
+  "panel": "B",
+
+  "concept": {
+    "vision": "A glowing cyberpunk cyborg hologram that glitched into a gallery of oil-painting portraits and treats it as his personal action-movie set. The LED bezel IS the frame; he is edge-to-edge, full-body, and ALWAYS in motion -- some part of his cybernetics is whirring/reconfiguring/lighting up every moment, and the neon street behind him is alive every frame (a hover-bus glides past, signs flicker).",
+    "canon_rule": "MAXX runs on BIT (a comedic over-confident action-hero AI). Personality drives everything: cocky hero poses, hardware that over-performs or malfunctions at the punchline, deadpan boasts. He is the loud anachronism next to Phineas the faded tragedian (who loathes him).",
+    "essence": "A legally-distinct discount action hero, convinced he is THE legend. Strikes the pose first, reads the room never. His giant cyber-arm does 80% of the acting."
+  },
+
+  "personality": {
+    "archetype": "discount action-hero cyborg",
+    "big_five": { "openness": 0.7, "conscientiousness": 0.25, "extraversion": 0.95, "agreeableness": 0.4, "neuroticism": 0.2 },
+    "traits": ["boastful", "deadpan", "over-confident", "theatrical", "oblivious"],
+    "demeanour": "strikes hero poses for an audience that isn't impressed; narrates his own awesomeness; hardware betrays him at comedic moments",
+    "catchphrases": ["MAXX-imum effort.", "You just got RENDERED.", "That's a me-problem... for YOU.", "Booting up the cool guy walk."]
+  },
+
+  "appearance": {
+    "sex": "male",
+    "build": "lean cocky cyber-mercenary, full body",
+    "cybernetics": "oversized intricate chrome-and-matte-black right cybernetic ARM with glowing magenta circuit veins (the comedic centerpiece -- it reconfigures into a cannon / exo-rig), a glowing cyan cybernetic eye-visor, neon underglow seams, exposed servo joints",
+    "wardrobe": "tattered high-collar tech-poncho over matte black combat layers, holographic HUD glyphs flickering around his head",
+    "expression_default": "smug half-smirk, chin up, supremely unbothered"
+  },
+
+  "style": {
+    "medium": "cinematic 3D character render, neon-noir",
+    "school": "Blade Runner / cyberpunk-comic, glowing hologram (deliberately NOT an oil painting -- the funny contrast in a painted gallery)",
+    "lighting": "dramatic neon rim light, magenta key + cyan fill, volumetric haze",
+    "palette": ["hot magenta", "electric cyan", "matte black", "chrome", "warning-orange accent"],
+    "background": "rain-slick cyberpunk street at night, glowing signage, a sleek neon hover-bus gliding past, flickering holograms -- ALWAYS animated"
+  },
+
+  "framing": {
+    "crop": "full-body three-quarter length, subject centered, room to show body-action + the moving background",
+    "frame": "NONE - the LED bezel is the only frame",
+    "aspect": "1:1",
+    "panel_px": "192x192"
+  },
+
+  "states": {
+    "idle":   "standing idle, cocky stance, arm-servos idling -- the rest/home node",
+    "weapon": "capability mode: the cyber-arm reconfigures into an absurdly oversized arm-cannon, targeting reticles, charge glow",
+    "mech":   "jumped back far, a big exo-frame / mech-rig unfolds around him taking much more of the frame -- the power-up"
+  },
+
+  "motion_directives": {
+    "body": "EVERY clip, some cybernetic part does something (servos whir, circuit veins pulse, visor HUD scans, plates flex, the arm reconfigures)",
+    "background": "EVERY clip, the neon street is alive (a hover-bus glides past, signage flickers, rain falls, holograms drift)",
+    "comedy": "let the hardware over-perform or malfunction at the punchline (a tiny holo-flag pops from the cannon, the mech vents steam, he blows smoke off a barrel)"
+  },
+
+  "generation": {
+    "identity_lock": "MJ --oref the approved idle anchor so weapon/mech states + all clips stay the same MAXX",
+    "positive_template": "cinematic cyberpunk 3D character render, neon-noir, a lean cocky cyborg street-mercenary in a confident hero pose, an oversized intricate chrome and matte-black cybernetic right arm with glowing magenta circuit veins, a glowing cyan cybernetic eye-visor, a tattered high-collar tech-poncho over matte-black combat layers, holographic HUD glyphs flickering around his head, full body three-quarter length centered, a rain-slick neon cyberpunk street at night behind him with glowing magenta and cyan signage and a sleek neon hover-bus gliding past, volumetric neon haze, dramatic neon rim light, hot magenta and electric cyan and chrome palette with a warning-orange accent, smug half-smirk chin up, highly detailed, cinematic, edge to edge no picture frame",
+    "negative": ["oil painting", "picture frame", "ornate frame", "border", "watermark", "text", "two people", "extra arms", "deformed hands", "blurry", "daytime", "flat lighting"]
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "schema": "living-portrait.character/v1",
+  "id": "phineas",
+  "name": "Master Phineas Quill",
+  "panel": "A",
+
+  "concept": {
+    "vision": "A Harry-Potter-style living portrait. The LED bezel IS the frame, so the figure is edge-to-edge with no painted frame. He is a real person who PRETENDS to be a painting: he holds a portrait pose but is actually, subtly, always moving, in a seamless loop, and he breaks the fourth wall.",
+    "canon_rule": "HP portraits imitate their subject's demeanour and favourite phrases; the richness of behaviour scales with the subject. So Phineas's PERSONALITY is the primary spec — it drives his face, his expression, his idle motion, and his lines.",
+    "essence": "A washed-up tragedian certain this gallery is beneath his gifts. Plays every throwaway line as the close of Act V. Name-drops dead playwrights as personal friends. Secretly resents the quicker wit in the brighter frame next door and will never admit it."
+  },
+
+  "personality": {
+    "archetype": "faded tragedian",
+    "big_five": {
+      "openness": 0.55,
+      "conscientiousness": 0.35,
+      "extraversion": 0.80,
+      "agreeableness": 0.25,
+      "neuroticism": 0.78
+    },
+    "traits": ["grandiloquent", "vain", "self-pitying", "resentful", "theatrical"],
+    "demeanour": "declamatory; performs to an imagined upper balcony; pivots to sudden wounded sulks",
+    "catchphrases": ["As I once told Marlowe...", "This gallery is beneath me.", "They came to see HER, didn't they."]
+  },
+
+  "appearance": {
+    "sex": "male",
+    "age": 62,
+    "face": "long gaunt face, hollow cheeks, heavy brow, deep-set sorrowful grey eyes, aquiline nose, thin pencil moustache and a small pointed beard",
+    "hair": "shoulder-length greying chestnut in theatrical waves, receding at the temples",
+    "complexion": "pallid and stage-worn, the faintest worn rouge on the cheekbones",
+    "costume": "late-17th-century tragedian: deep oxblood velvet doublet, an ivory lace falling-band collar, one tarnished silver brooch",
+    "expression_default": "wounded grandeur, chin slightly raised, looking down his nose"
+  },
+
+  "style": {
+    "medium": "oil painting",
+    "school": "Dutch Golden Age, Rembrandt manner",
+    "lighting": "single warm candlelit source from upper-left, deep chiaroscuro",
+    "palette": ["oxblood", "bitumen black", "ivory", "old gold"],
+    "brushwork": "visible impasto on the highlights, thin glazed shadows",
+    "finish": "fresh varnish, NO craquelure (he is alive, not an old damaged painting)"
+  },
+
+  "framing": {
+    "crop": "head and shoulders, subject fills ~80% of the frame, edge to edge",
+    "background": "deep warm-black void with the faintest haze of a study",
+    "frame": "NONE - the LED bezel is the only frame",
+    "aspect": "1:1",
+    "eyeline": "slightly above the viewer (he looks down at you)"
+  },
+
+  "generation": {
+    "model": "stabilityai/stable-diffusion-xl-base-1.0",
+    "identity_lock": "InstantID (preferred) or IP-Adapter-FaceID-plusv2_sdxl, seeded from the approved anchor face, so every re-gen and BOTH panels stay the same Phineas",
+    "positive_template": "{style.medium}, {style.school}, {style.lighting}, rich saturated oil colour, deep oxblood crimson and old-gold tones, warm flesh tones, a {appearance.age} year old {appearance.sex} {personality.archetype}, {appearance.face}, {appearance.hair}, {appearance.complexion}, bare-headed no hat, wearing {appearance.costume}, {appearance.expression_default}, {framing.crop}, {framing.background}, {style.brushwork}, masterpiece, museum quality, highly detailed sharp eyes",
+    "negative": ["hat", "headwear", "cap", "monochrome", "grayscale", "greyscale", "desaturated", "charcoal sketch", "pencil sketch", "black and white", "picture frame", "gilded frame", "ornate frame", "border", "framed painting", "painting on a wall", "gallery wall", "craquelure", "cracked varnish", "photograph", "3d render", "cartoon", "anime", "modern clothing", "text", "watermark", "deformed", "extra fingers", "blurry", "duplicate", "two people"],
+    "params": { "steps": 35, "cfg": 6.5, "width": 1024, "height": 1024, "sampler": "DPM++ 2M Karras" }
+  },
+
+  "motion": {
+    "engine": "animatediff",
+    "engine_note": "SD1.5 + motion adapter -- PROMPT-DRIVEN full-frame BODY motion (not face-only). Identity held from the anchor via IP-Adapter-FaceID / SparseCtrl keyframe. animation_prompt drives the motion as richly as generation.positive_template drives the still; the bake leads with `lead` (the action verbs) because SD1.5 CLIP truncates at 77 tokens.",
+    "loop_contract": "Each behaviour is a full-body action that STARTS and ENDS in the seated rest pose (every animation_prompt ends '...returns to the rest pose'), so the clip loops; boomerang closes any residual seam. clip_graph: rest pose = node, each behaviour = a returning edge.",
+    "fps": 12,
+    "frames": 25,
+    "rest_pose": "seated upright facing forward, hands in lap, in the oxblood velvet robe -- identical to the anchor still",
+    "gaze": {
+      "home": "down-the-nose at the viewer",
+      "targets": [["viewer", 0.5], ["middle_distance_balcony", 0.35], ["panel_B_resentful", 0.15]]
+    },
+    "idle_behaviors": [
+      {
+        "id": "declaim", "weight": 0.40, "drivers": ["extraversion", "theatrical"],
+        "animation_prompt": "the gaunt old alchemist surges upward from his chair and flings both arms wide in a grand sweeping theatrical gesture, chin thrown back, mouth open mid-declamation toward an unseen upper balcony, his oxblood velvet robe billowing with the motion, then sinks slowly and grandly back down, hands returning to his lap in the seated rest pose",
+        "lead": "old man flings both arms wide overhead in a grand theatrical gesture, chin thrown back, robe billowing, then sits back down",
+        "motion_scale": 1.0
+      },
+      {
+        "id": "wounded_sulk", "weight": 0.30, "drivers": ["neuroticism", "self-pitying"],
+        "animation_prompt": "the old alchemist slumps, his shoulders sinking, one hand rising to press against his chest, his head bowing and turning slowly away in a self-pitying sulk with a heavy sigh, then he gradually straightens and lifts his head back to the upright seated rest pose",
+        "lead": "old man slumps, presses a hand to his chest, bows and turns his head away sulking, then straightens back up",
+        "motion_scale": 0.85
+      },
+      {
+        "id": "side_eye_rival", "weight": 0.20, "drivers": ["low_agreeableness", "resentful"],
+        "animation_prompt": "the old alchemist twists his torso and head sharply to the side to glare resentfully off-frame at his rival, lifts one hand in a small dismissive flick and sniffs with disdain, then rotates squarely back to face forward in the seated rest pose",
+        "lead": "old man twists torso and head sharply to the side glaring, flicks a hand dismissively, then turns back to face forward",
+        "motion_scale": 1.0
+      },
+      {
+        "id": "appraise_viewer", "weight": 0.10, "drivers": ["vain"],
+        "animation_prompt": "the old alchemist leans forward toward the viewer, narrowing his eyes and arching one brow, slowly raising one hand to stroke his pointed beard as he appraises you with cool contempt, then leans back and lowers his hand to the seated rest pose",
+        "lead": "old man leans forward, raises a hand to stroke his beard appraising the viewer, then leans back",
+        "motion_scale": 0.9
+      }
+    ]
+  },
+
+  "voice": {
+    "register": "dry patrician baritone, grandiloquent, self-pitying",
+    "owner": "director/stage_manager.py (already wired)"
+  },
+
+  "dynamic": {
+    "how_it_is_dynamic": "Per loop, pick one idle_behavior by weight -> a different personality-true motion each cycle (variety). The fixed face + behavior-set make every loop unmistakably Phineas (literal personality). mood (data/mood.json, from the director) re-weights behaviours so his current mood shows in his body.",
+    "mood_reweights": {
+      "conspiratorial": { "side_eye_rival": 2.5 },
+      "wounded": { "wounded_sulk": 2.5 },
+      "grand": { "declaim": 2.5 },
+      "vain": { "appraise_viewer": 2.5 }
+    },
+    "render_pseudocode": [
+      "anchor = SDXL(positive_template.format(**spec), negative) locked by identity_lock",
+      "behavior = weighted_choice(idle_behaviors, reweight=mood_reweights[mood])",
+      "clip = LivePortrait(anchor, driving=behavior, return_to=anchor)   # starts+ends neutral => loops",
+      "clip_graph.add_edge(anchor_node -> anchor_node, clip, tags=[behavior.id])",
+      "player picks a random edge each cycle -> endless, non-repeating, in-character idle"
+    ]
+  }
+}

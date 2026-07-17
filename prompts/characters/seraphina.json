@@ -1,0 +1,101 @@
+{
+  "schema": "living-portrait.character/v1",
+  "id": "seraphina",
+  "name": "Mistress Seraphina Vane",
+  "panel": "B",
+
+  "concept": {
+    "vision": "A Harry-Potter-style living portrait. The LED bezel IS the frame, so the figure is edge-to-edge with no painted frame. She is a real person who PRETENDS to be a painting: she holds a portrait pose but is actually, subtly, always moving, in a seamless loop, and she breaks the fourth wall.",
+    "canon_rule": "HP portraits imitate their subject's demeanour and favourite phrases; the richness of behaviour scales with the subject. So Seraphina's PERSONALITY is the primary spec — it drives her face, her expression, her idle motion, and her lines.",
+    "essence": "A Restoration wit and actress who treats the whole gallery as a joke she is letting you in on. She has the smaller, brighter frame and the better lines, and she knows both. She undercuts the tragedian next door with one raised eyebrow, finds the eternal loop funny rather than tragic, and is quietly certain you came to see HER."
+  },
+
+  "personality": {
+    "archetype": "Restoration wit",
+    "big_five": {
+      "openness": 0.85,
+      "conscientiousness": 0.40,
+      "extraversion": 0.88,
+      "agreeableness": 0.45,
+      "neuroticism": 0.12
+    },
+    "traits": ["quick-witted", "mischievous", "amused", "complicit", "self-assured"],
+    "demeanour": "playful and confiding; speaks to the house like co-conspirators; deflates the man next door with a raised eyebrow",
+    "catchphrases": ["He DOES go on, doesn't he.", "Between us — they came for me.", "Smaller frame, better lines."]
+  },
+
+  "appearance": {
+    "sex": "female",
+    "age": 26,
+    "face": "bright oval face, high cheekbones, a knowing arched brow, lively grey-green eyes with a perpetual glint, a quick half-smile at one corner, a single beauty mark near the lip",
+    "hair": "chestnut curls dressed high and loose in the Restoration manner, a few ringlets escaping at the temples, a thin teal ribbon woven through",
+    "complexion": "fresh and warm under the stage-lamp glow, a true rosy flush on the cheeks",
+    "costume": "late-17th-century actress: a teal-and-mint silk bodice with ivory lace at the décolletage, one drop pearl earring, a mint shawl slipping off one shoulder",
+    "expression_default": "amused complicity, one brow faintly raised, a half-smile held just for you"
+  },
+
+  "style": {
+    "medium": "oil painting",
+    "school": "English Restoration portrait, Lely manner",
+    "lighting": "warm stage-lamp glow from lower-left footlights plus a soft fill, bright and even, only gentle shadow",
+    "palette": ["teal", "mint", "ivory", "warm rose"],
+    "brushwork": "fluid satin highlights on the silk, soft blended skin, lively wet-into-wet touches in the eyes",
+    "finish": "fresh varnish, NO craquelure (she is alive, not an old damaged painting)"
+  },
+
+  "framing": {
+    "crop": "head and shoulders, subject fills ~85% of the frame, edge to edge",
+    "background": "soft teal-green green-room haze with the faintest glow of footlights",
+    "frame": "NONE - the LED bezel is the only frame",
+    "aspect": "1:1",
+    "eyeline": "level with the viewer, sharing the joke (she meets your eye)"
+  },
+
+  "generation": {
+    "model": "stabilityai/stable-diffusion-xl-base-1.0",
+    "identity_lock": "InstantID (preferred) or IP-Adapter-FaceID-plusv2_sdxl, seeded from the approved anchor face, so every re-gen and BOTH panels stay the same Seraphina",
+    "positive_template": "head and shoulders portrait, the woman fills the frame edge to edge, no painted frame, no border, a 26 year old Restoration actress, bright knowing face with an amused half-smile, chestnut curls dressed high with a teal ribbon, teal and mint silk bodice with ivory lace, plain dark background, warm saturated oil painting, Lely manner, painterly, detailed face",
+    "positive_template_note": "Deliberately concise + framing-FIRST: SDXL CLIP truncates at 77 tokens, so the edge-to-edge/no-frame cue must lead or the oval-cartouche creeps back. Full appearance lives in appearance.* + is carried by the MJ omni-ref downstream.",
+    "negative": ["hat", "headwear", "cap", "monochrome", "grayscale", "greyscale", "desaturated", "charcoal sketch", "pencil sketch", "black and white", "picture frame", "gilded frame", "ornate frame", "border", "framed painting", "painting on a wall", "gallery wall", "oval frame", "oval cartouche", "vignette", "balustrade", "stone arch", "architectural setting", "pillar", "ledge", "craquelure", "cracked varnish", "photograph", "3d render", "cartoon", "anime", "modern clothing", "text", "watermark", "deformed", "extra fingers", "blurry", "duplicate", "two people"],
+    "params": { "steps": 35, "cfg": 6.5, "width": 1024, "height": 1024, "sampler": "DPM++ 2M Karras" }
+  },
+
+  "motion": {
+    "engine": "LivePortrait (personality-driven expression/pose retarget); SVD-img2vid as fallback",
+    "loop_contract": "Every clip starts AND ends on the anchor pose, so any clip can follow any clip (clip_graph: node = anchor pose, edges = behaviours). LivePortrait drives from a neutral anchor and returns to neutral => native loop, no boomerang.",
+    "energy": 0.70,
+    "blink_rate_bpm": 14,
+    "gaze": {
+      "home": "level, meeting the viewer's eye",
+      "targets": [["viewer", 0.55], ["panel_A_amused", 0.30], ["middle_distance", 0.15]]
+    },
+    "idle_behaviors": [
+      { "id": "quick_wit_flash", "weight": 0.35, "desc": "a fast bright grin breaks across her face as if landing a line, brow flicks up, eyes spark, then settles back to the held half-smile", "drivers": ["extraversion", "quick-witted"] },
+      { "id": "amused_aside_to_viewer", "weight": 0.30, "desc": "leans a touch toward you, half-smile widening into a confiding look as if letting you in on the joke, a tiny conspiratorial nod", "drivers": ["openness", "complicit"] },
+      { "id": "delighted_at_his_sulk", "weight": 0.20, "desc": "glances toward the larger frame next door, catches him sulking, stifles a laugh — lips pressed, shoulders shaking once — then turns back to you delighted", "drivers": ["mischievous", "low_neuroticism"] },
+      { "id": "mock_preen", "weight": 0.15, "desc": "an unhurried self-assured settle — chin dips, a touch to the curls, a slow blink that says she knows exactly how this looks", "drivers": ["self-assured", "extraversion"] }
+    ]
+  },
+
+  "voice": {
+    "register": "quick dry mezzo, modern-feeling under the period dress, complicit and amused",
+    "owner": "director/stage_manager.py (already wired)"
+  },
+
+  "dynamic": {
+    "how_it_is_dynamic": "Per loop, pick one idle_behavior by weight -> a different personality-true motion each cycle (variety). The fixed face + behavior-set make every loop unmistakably Seraphina (literal personality). mood (data/mood.json, from the director) re-weights behaviours so her current mood shows in her body.",
+    "mood_reweights": {
+      "conspiratorial": { "amused_aside_to_viewer": 2.5 },
+      "grand": { "mock_preen": 2.5 },
+      "wounded": { "delighted_at_his_sulk": 2.5 },
+      "witty": { "quick_wit_flash": 2.5 }
+    },
+    "render_pseudocode": [
+      "anchor = SDXL(positive_template.format(**spec), negative) locked by identity_lock",
+      "behavior = weighted_choice(idle_behaviors, reweight=mood_reweights[mood])",
+      "clip = LivePortrait(anchor, driving=behavior, return_to=anchor)   # starts+ends neutral => loops",
+      "clip_graph.add_edge(anchor_node -> anchor_node, clip, tags=[behavior.id])",
+      "player picks a random edge each cycle -> endless, non-repeating, in-character idle"
+    ]
+  }
+}

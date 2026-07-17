@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1240" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#7c8aa0"/></marker>
+    <marker id="arrG" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#34d399"/></marker>
+    <marker id="arrA" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#f5a524"/></marker>
+    <marker id="arrR" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#f87171"/></marker>
+    <marker id="arrC" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#22d3ee"/></marker>
+    <style>
+      .mono { font-family:'Consolas','SF Mono',Menlo,monospace; }
+      .title { font-size:32px; font-weight:700; fill:#d8a657; }
+      .titlesub { font-size:19px; font-weight:600; fill:#e6edf3; }
+      .note { font-size:13px; fill:#aab8c8; }
+      .zoneh { font-size:13px; font-weight:700; letter-spacing:0.5px; }
+      .lpill { font-size:10.5px; font-weight:700; fill:#0a0e14; }
+      .ct { font-size:13.5px; font-weight:700; fill:#f1f5f9; }
+      .body { font-size:11.5px; fill:#c4d0dd; }
+      .key { font-size:11.5px; fill:#d7e0ea; }
+      .muted { font-size:10.5px; fill:#8896a8; }
+      .chip { font-size:10.5px; font-weight:700; }
+      .flow { font-size:11px; font-weight:600; fill:#9fb0c4; }
+      .mh { font-size:15px; font-weight:700; letter-spacing:0.4px; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1920" height="1240" fill="#0a0e14"/>
+
+  <!-- HEADER -->
+  <text x="34" y="50" class="title">LIVING PORTRAITS<tspan class="titlesub" dx="12">/ Architecture v4 (two-machine: panels move to hil08rd; SC2 stays the GPU bakery)</tspan></text>
+  <text x="36" y="78" class="note">Self-aware theatrical portraits on two LED panels. v4 splits the system across two tailnet hosts: the SHOW (player + director + rig + cross-frame walk) relocates to <tspan class="mono" fill="#7cc0ff">hil08rd</tspan>, the machine wired to the panels; the GPU BAKERY (SD1.5 gen + verify gate) stays on <tspan class="mono" fill="#f5cf8a">supercommons2</tspan>. Assets sync SC2 &#8594; hil; the director either runs Ollama locally (if hil has a GPU) or reaches SC2's qwen3 over the tailnet. Still no realtime: pre-baked beats, deterministic player.</text>
+  <text x="36" y="97" class="note">Legend: <tspan fill="#34d399" font-weight="700">green = built &amp; running</tspan> &#183; <tspan fill="#67e8f9" font-weight="700">cyan = built + verified, migrating</tspan> &#183; <tspan fill="#f5a524" font-weight="700">amber = migration step (this runbook)</tspan> &#183; <tspan fill="#c4b5fd" font-weight="700">violet = contract / seam</tspan> &#183; <tspan fill="#f87171" font-weight="700">red = pending on-site (real panels)</tspan>.   Migration state: <tspan fill="#67e8f9" font-weight="700">built+verified on SC2</tspan> &#8594; <tspan fill="#f5a524" font-weight="700">moving the show to hil08rd</tspan>. Tooling: deploy_host.ps1 &#183; sync_assets.ps1 &#183; bringup_host.ps1 &#183; panels.yaml. Runbook: MIGRATION.md.</text>
+
+  <!-- ===================== MACHINE A: hil08rd (THE SHOW) ===================== -->
+  <rect x="32" y="116" width="1230" height="1004" rx="14" fill="#0b0f17" stroke="#7cc0ff" stroke-width="1.6" stroke-dasharray="2 0"/>
+  <rect x="32" y="116" width="1230" height="40" rx="14" fill="#10243a"/>
+  <text x="50" y="143" class="mh" fill="#9ecbff">MACHINE A &#183; hil08rd  (desktop-hil08rd &#183; 100.71.118.128)  &#8212;  THE PANEL MACHINE: the show lives here, drives the two LED panels</text>
+  <text x="1244" y="143" text-anchor="end" class="muted mono" fill="#67e8f9">DESTINATION</text>
+
+  <!-- ZONE 1: INPUTS / SIGNALS (hil) -->
+  <rect x="48" y="168" width="1198" height="92" rx="11" fill="#0c1118" stroke="#2b3b52" stroke-dasharray="5 4"/>
+  <text x="62" y="189" class="zoneh" fill="#7cc0ff">1 &#183; INPUTS / SIGNALS  (director/signals.py + director/feeds.py)  &#183;  runs on hil</text>
+  <rect x="62" y="200" width="276" height="48" rx="8" fill="#101722" stroke="#34d399"/>
+  <text x="76" y="220" class="ct">Clock + part-of-day</text><text x="76" y="238" class="muted">morning / evening / small hours</text>
+  <rect x="352" y="200" width="340" height="48" rx="8" fill="#101722" stroke="#34d399"/>
+  <text x="366" y="220" class="ct">Internal mood drift</text><text x="366" y="238" class="muted mono">data/mood.json &#183; persisted &#183; per beat</text>
+  <rect x="706" y="200" width="540" height="48" rx="8" fill="#101722" stroke="#34d399"/>
+  <rect x="718" y="209" width="62" height="16" rx="8" fill="#34d399"/><text x="749" y="221" text-anchor="middle" class="lpill">WIRED</text>
+  <text x="792" y="221" class="ct">External feed</text><text x="792" y="238" class="muted mono">THE SIGNAL + Calendar + weather &#183; 30-min TTL &#183; offline-degrade to stub</text>
+
+  <path d="M730,260 L730,276" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <!-- ZONE 2: DIRECTOR / BRAIN (hil) -->
+  <rect x="48" y="278" width="1198" height="150" rx="11" fill="#0b0f17" stroke="#34557a" stroke-dasharray="6 4"/>
+  <text x="62" y="299" class="zoneh" fill="#9ecbff">2 &#183; DIRECTOR / BRAIN  (director/stage_manager.py)  &#183;  qwen3:8b &#183; format=json &#183; /no_think &#183; --loop 45s  &#183;  process runs on hil</text>
+  <rect x="62" y="310" width="372" height="106" rx="9" fill="#15101f" stroke="#a78bfa" stroke-width="1.3"/>
+  <rect x="74" y="320" width="120" height="16" rx="8" fill="#a78bfa"/><text x="134" y="332" text-anchor="middle" class="lpill">CONTRACT</text>
+  <text x="74" y="360" class="ct" fill="#c4b5fd">Prompt library (prompts/)</text>
+  <text x="74" y="380" class="key mono">_stage-directives.md  &#183;  4th-wall rule</text>
+  <text x="74" y="398" class="muted mono">characters/phineas.md (A) &#183; seraphina.md (B)</text>
+
+  <rect x="450" y="310" width="368" height="106" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="464" y="334" class="ct">Compose beat</text>
+  <text x="464" y="356" class="body mono">signals + cast  -&gt;  qwen3  -&gt;  JSON beat</text>
+  <text x="464" y="376" class="body mono">schema: scene / A / B / bridge / move</text>
+  <text x="464" y="398" class="muted">action clamped to a 7-verb vocabulary</text>
+
+  <!-- the qwen3 endpoint box: split-personality (local vs tailnet) -->
+  <rect x="834" y="310" width="412" height="106" rx="9" fill="#101722" stroke="#f5a524" stroke-width="1.4"/>
+  <rect x="846" y="320" width="170" height="16" rx="8" fill="#f5a524"/><text x="931" y="332" text-anchor="middle" class="lpill">qwen3 ENDPOINT (decision)</text>
+  <text x="846" y="358" class="key"><tspan fill="#34d399" font-weight="700">hil has GPU:</tspan> <tspan class="mono">127.0.0.1:11434</tspan> (all-on-hil)</text>
+  <text x="846" y="378" class="key"><tspan fill="#22d3ee" font-weight="700">hil has NO GPU:</tspan> <tspan class="mono">LP_OLLAMA</tspan> &#8594; SC2 over tailnet</text>
+  <text x="846" y="398" class="muted mono">conductor edits stage_manager.py:24 to read LP_OLLAMA env</text>
+
+  <path d="M730,428 L730,444" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+  <text x="742" y="440" class="flow mono">beat JSON (atomic tmp + os.replace)</text>
+
+  <!-- ZONE 3: CONTROL CHANNEL (hil) -->
+  <rect x="48" y="446" width="1198" height="58" rx="11" fill="#0a1512" stroke="#2f5e4d" stroke-dasharray="6 4"/>
+  <text x="62" y="467" class="zoneh" fill="#6ee7b7">3 &#183; CONTROL CHANNEL  &#183;  the only seam between brain and stage  &#183;  local file on hil</text>
+  <rect x="430" y="475" width="430" height="22" rx="8" fill="#101722" stroke="#34d399"/>
+  <text x="446" y="491" class="ct mono" fill="#6ee7b7">data/stage_state.json</text><text x="700" y="491" class="muted">player mtime-polls ~2Hz &#183; never a half-write</text>
+
+  <path d="M730,504 L730,520" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <!-- ZONE 4: PLAYER / STAGE (hil) -->
+  <rect x="48" y="522" width="1198" height="158" rx="11" fill="#0b0f17" stroke="#34557a" stroke-dasharray="6 4"/>
+  <text x="62" y="543" class="zoneh" fill="#9ecbff">4 &#183; PLAYER / STAGE  (player.py + runtime/)  &#183;  pygame, borderless window @ (0,0), top-most + windowless, console session 1  &#183;  runs on hil</text>
+  <rect x="1018" y="531" width="216" height="16" rx="8" fill="#f5a524"/><text x="1126" y="543" text-anchor="middle" class="lpill">RE-VERIFY ON hil's DISPLAY</text>
+
+  <rect x="62" y="554" width="262" height="112" rx="9" fill="#1a0f10" stroke="#d2aa5a"/>
+  <text x="76" y="578" class="ct" fill="#e0c07a">Stage A &#183; 256 x 256</text>
+  <text x="76" y="600" class="body">Phineas frame (maroon)</text>
+  <text x="76" y="620" class="muted mono">rect (0, 0, 256, 256)</text>
+  <text x="76" y="642" class="muted">geometry now from panels.yaml</text>
+  <text x="76" y="660" class="muted">(was hardcoded in player.py)</text>
+
+  <rect x="338" y="554" width="262" height="112" rx="9" fill="#0c1c1e" stroke="#5ec8be"/>
+  <text x="352" y="578" class="ct" fill="#78ccc2">Stage B &#183; 192 x 192</text>
+  <text x="352" y="600" class="body">Seraphina frame (teal)</text>
+  <text x="352" y="620" class="muted mono">rect (256, 0, 192, 192)</text>
+  <text x="352" y="642" class="muted">smaller, brighter, quicker wit</text>
+  <text x="352" y="660" class="muted">offset also from panels.yaml</text>
+
+  <rect x="614" y="554" width="304" height="112" rx="9" fill="#101722" stroke="#243349"/>
+  <text x="628" y="578" class="ct">Render + animate</text>
+  <text x="628" y="600" class="body"><tspan fill="#34d399" font-weight="700">runtime/stage_render.py</tspan> portrait + aside</text>
+  <text x="628" y="620" class="body"><tspan fill="#34d399" font-weight="700">runtime/rig_loop.py</tspan> blink / gaze / mouth</text>
+  <text x="628" y="640" class="body"><tspan fill="#34d399" font-weight="700">runtime/crossframe.py</tspan> walk A&#8596;B</text>
+  <text x="628" y="660" class="muted">clip_player + clip_graph drive the footage</text>
+
+  <rect x="932" y="554" width="302" height="112" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="946" y="578" class="ct">Liveness + pinning</text>
+  <text x="946" y="600" class="body">moving marker + wall clock</text>
+  <text x="946" y="620" class="body mono">SetWindowPos HWND_TOPMOST</text>
+  <text x="946" y="640" class="body mono">SDL_VIDEO_WINDOW_POS = 0,0</text>
+  <text x="946" y="660" class="muted">windowless (pythonw) &#183; self-logs</text>
+
+  <path d="M730,680 L730,696" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+  <text x="742" y="692" class="flow mono">framebuffer region (0,0,448x256) of hil's desktop</text>
+
+  <!-- ZONE 5: OUTPUT / EDGE (hil -> panels) -->
+  <rect x="48" y="698" width="1198" height="88" rx="11" fill="#0c1118" stroke="#2b3b52" stroke-dasharray="5 4"/>
+  <text x="62" y="719" class="zoneh" fill="#7cc0ff">5 &#183; OUTPUT / EDGE  &#183;  hil's desktop framebuffer -&gt; LED sending card -&gt; panels  &#183;  the physical edge moves to hil</text>
+  <rect x="62" y="730" width="320" height="46" rx="8" fill="#101722" stroke="#f5a524"/>
+  <rect x="74" y="738" width="118" height="15" rx="7" fill="#f5a524"/><text x="133" y="750" text-anchor="middle" class="lpill">RE-FIT TO hil</text>
+  <text x="202" y="750" class="key">Framebuffer (0,0,448x256)</text><text x="76" y="768" class="muted">panels.yaml sized to hil's monitor + LED card</text>
+  <path d="M382,753 L426,753" stroke="#7c8aa0" stroke-width="1.8" marker-end="url(#arr)"/>
+  <rect x="430" y="730" width="368" height="46" rx="8" fill="#0c131d" stroke="#1f2a3a"/>
+  <text x="444" y="750" class="key">LED sending card (Novastar / Colorlight)</text><text x="444" y="768" class="muted">grabs the region, maps each sub-rect to a panel</text>
+  <path d="M798,753 L842,753" stroke="#7c8aa0" stroke-width="1.8" marker-end="url(#arr)"/>
+  <rect x="846" y="730" width="388" height="46" rx="8" fill="#101722" stroke="#f87171" stroke-width="1.4"/>
+  <rect x="858" y="738" width="170" height="16" rx="8" fill="#f87171"/><text x="943" y="750" text-anchor="middle" class="lpill">CARD MAPPING PENDING (hil)</text>
+  <text x="1042" y="750" class="key">Panel A 256&#178; + Panel B 192&#178;</text>
+  <text x="858" y="769" class="muted">confirm A=(0,0) B=(256,0) on hil's card on-site</text>
+
+  <!-- ZONE 6: GENERATIVE / RUNTIME CONSUMERS (the baked library, used on hil) -->
+  <rect x="48" y="804" width="1198" height="160" rx="11" fill="#100a14" stroke="#5b4a7a" stroke-dasharray="6 4"/>
+  <text x="62" y="825" class="zoneh" fill="#c4b5fd">6 &#183; CLIP LIBRARY (consumed on hil)  &#183;  the baked footage the player reads  &#183;  synced FROM SC2, then read locally</text>
+  <text x="500" y="825" class="muted">all-on-hil variant bakes here too; two-machine variant receives via sync_assets.ps1</text>
+
+  <rect x="62" y="836" width="244" height="60" rx="9" fill="#0c1f17" stroke="#34d399" stroke-width="1.6"/>
+  <rect x="74" y="845" width="118" height="16" rx="8" fill="#34d399"/><text x="133" y="857" text-anchor="middle" class="lpill">RENDERED &#183; PORTRAITS</text>
+  <text x="74" y="881" class="body mono">data/gen/&lt;slug&gt;_portrait.png</text>
+  <path d="M306,866 L320,866" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <rect x="322" y="836" width="232" height="60" rx="9" fill="#08171b" stroke="#22d3ee"/>
+  <rect x="334" y="845" width="46" height="16" rx="8" fill="#22d3ee"/><text x="357" y="857" text-anchor="middle" class="lpill">BUILT</text>
+  <text x="334" y="881" class="body mono">cutouts + rigs + bg plates</text>
+  <path d="M554,866 L568,866" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrC)"/>
+
+  <rect x="570" y="836" width="280" height="60" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="584" y="858" class="ct">runtime/clip_graph.py</text>
+  <text x="584" y="881" class="body mono">action -&gt; clip, loopable index</text>
+  <path d="M850,866 L864,866" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <rect x="866" y="836" width="368" height="60" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="880" y="858" class="ct">runtime/clip_player.py</text>
+  <text x="880" y="881" class="body">feeds the player loop &#183; reads stage_state.json</text>
+
+  <!-- runtime durability row (hil scheduled tasks) -->
+  <rect x="62" y="908" width="1172" height="48" rx="9" fill="#0c1410" stroke="#34d399" stroke-dasharray="4 3"/>
+  <rect x="74" y="916" width="170" height="16" rx="8" fill="#f5a524"/><text x="159" y="928" text-anchor="middle" class="lpill">DURABILITY (re-register on hil)</text>
+  <text x="256" y="928" class="body mono">install_tasks.ps1 (or deploy_host.ps1): lp-player + lp-director AT-LOGON interactive &#183; lp-watchdog every 5 min &#183; reboot-survivable</text>
+
+  <!-- ALL-ON-HIL VARIANT callout: if hil has its own GPU, SC2 drops out -->
+  <rect x="48" y="968" width="1198" height="142" rx="11" fill="#0c1f17" stroke="#34d399" stroke-width="1.4" stroke-dasharray="7 4"/>
+  <rect x="62" y="980" width="186" height="18" rx="9" fill="#34d399"/><text x="155" y="993" text-anchor="middle" class="lpill">VARIANT &#183; ALL-ON-HIL</text>
+  <text x="262" y="993" class="ct" fill="#6ee7b7">if hil08rd has its OWN NVIDIA GPU, the whole system is self-contained at the panels &#8212; SC2 drops out entirely</text>
+  <text x="62" y="1020" class="body">bringup_host.ps1 detects the GPU and takes the PRODUCER path on hil: builds <tspan class="mono" fill="#d7e0ea">.venv-gen</tspan> (torch cu121 + diffusers + SD1.5 + piper + insightface + SAM deps),</text>
+  <text x="62" y="1040" class="body">pulls <tspan class="mono" fill="#d7e0ea">qwen3:8b</tspan> + <tspan class="mono" fill="#d7e0ea">qwen2.5vl:7b</tspan> LOCALLY, and bakes portraits on hil. Then: no asset sync, no LP_OLLAMA, no tailnet hop.</text>
+  <text x="62" y="1062" class="key"><tspan fill="#34d399" font-weight="700">SKIPPED in this variant:</tspan> <tspan class="mono">sync_assets.ps1</tspan> (zone 6 bakes in place) &#183; <tspan class="mono">LP_OLLAMA</tspan> (Ollama is on 127.0.0.1) &#183; the SC2 &#8596; hil tailnet link.</text>
+  <text x="62" y="1084" class="muted">Trade-off: hil needs the heavy generative stack + a capable GPU. The two-machine split exists precisely for when hil has NO GPU &#8212;</text>
+  <text x="62" y="1100" class="muted">the show is light + deterministic (runs anywhere), the bake is heavy + GPU-bound (stays on SC2's 2080 Ti). Same code, two topologies.</text>
+
+  <!-- ===================== MACHINE B: supercommons2 (THE BAKERY) ===================== -->
+  <rect x="1282" y="116" width="606" height="704" rx="14" fill="#13100b" stroke="#f5cf8a" stroke-width="1.6"/>
+  <rect x="1282" y="116" width="606" height="40" rx="14" fill="#2a2310"/>
+  <text x="1300" y="143" class="mh" fill="#f5cf8a">MACHINE B &#183; supercommons2  (<producer-host>)</text>
+  <text x="1872" y="143" text-anchor="end" class="muted mono" fill="#67e8f9">SOURCE / GPU</text>
+
+  <text x="1300" y="180" class="zoneh" fill="#f5cf8a">GPU BACKEND  &#183;  bakes assets; optionally serves qwen3 to hil</text>
+
+  <rect x="1300" y="192" width="570" height="92" rx="9" fill="#101722" stroke="#34d399"/>
+  <rect x="1312" y="202" width="58" height="16" rx="8" fill="#34d399"/><text x="1341" y="214" text-anchor="middle" class="lpill">LOCAL</text>
+  <text x="1380" y="214" class="chip" fill="#34d399">stays put</text>
+  <text x="1312" y="240" class="ct">SC2 box</text>
+  <text x="1312" y="260" class="body">i9-9900K &#183; 64 GB &#183; RTX 2080 Ti 11 GB</text>
+  <text x="1312" y="278" class="muted mono" fill="#5b6b7d">immer@<producer-host> &#183; Win 11 26200 &#183; shares inference-eng</text>
+
+  <!-- gen pipeline on SC2 -->
+  <rect x="1300" y="296" width="278" height="90" rx="9" fill="#0c1f17" stroke="#34d399" stroke-width="1.6"/>
+  <rect x="1312" y="306" width="118" height="16" rx="8" fill="#34d399"/><text x="1371" y="318" text-anchor="middle" class="lpill">RENDERED &#183; LOCAL</text>
+  <text x="1312" y="344" class="ct">generate.py &#183; SD1.5</text>
+  <text x="1312" y="364" class="body mono">~4GB cached &#183; .venv-gen</text>
+  <text x="1312" y="381" class="muted">first Phineas portrait done</text>
+
+  <rect x="1592" y="296" width="278" height="90" rx="9" fill="#08171b" stroke="#22d3ee"/>
+  <rect x="1604" y="306" width="46" height="16" rx="8" fill="#22d3ee"/><text x="1627" y="318" text-anchor="middle" class="lpill">BUILT</text>
+  <text x="1604" y="344" class="ct" fill="#9fe6f5">segment + rig + verify</text>
+  <text x="1604" y="364" class="body mono">SAM/GrabCut &#183; SSIM &#183; ArcFace</text>
+  <text x="1604" y="381" class="muted">install SAM/InsightFace/Piper on SC2</text>
+
+  <rect x="1300" y="398" width="570" height="74" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="1314" y="421" class="ct">Local models (no cloud)</text>
+  <text x="1314" y="443" class="body mono">qwen3:8b (director, served on demand) &#183; SD1.5 (gen)</text>
+  <text x="1314" y="462" class="muted">+ SAM / InsightFace / Piper installed by sc2_bringup.ps1</text>
+
+  <rect x="1300" y="484" width="570" height="90" rx="9" fill="#101722" stroke="#34d399"/>
+  <text x="1314" y="508" class="ct">Producer backfill (sc2_bringup.ps1)</text>
+  <text x="1314" y="530" class="body mono">orchestrate.py: gen -&gt; segment -&gt; rig -&gt; verify -&gt; clip row</text>
+  <text x="1314" y="550" class="body">strict mode: registers only CLEAN passes</text>
+  <text x="1314" y="568" class="muted">output = the clip library that syncs to hil</text>
+
+  <rect x="1300" y="586" width="570" height="86" rx="9" fill="#0c1014" stroke="#334155"/>
+  <text x="1314" y="610" class="ct" fill="#f5cf8a">Two venvs (kept on SC2)</text>
+  <text x="1314" y="632" class="key"><tspan fill="#34d399" font-weight="700">.venv</tspan> <tspan class="muted">pygame &#183; opencv &#183; numpy (runtime, also needed on hil)</tspan></text>
+  <text x="1314" y="652" class="key"><tspan fill="#34d399" font-weight="700">.venv-gen</tspan> <tspan class="muted">torch 2.5.1+cu121 &#183; diffusers (HEAVY, SC2 only)</tspan></text>
+  <text x="1314" y="668" class="muted">all-on-hil variant needs .venv-gen on hil too</text>
+
+  <rect x="1300" y="684" width="570" height="120" rx="9" fill="#0c1014" stroke="#334155"/>
+  <text x="1314" y="708" class="ct" fill="#9ecbff">Why SC2 stays the bakery</text>
+  <text x="1314" y="729" class="muted">The 2080 Ti is here. Baking (SD1.5 + img2vid + verify) is</text>
+  <text x="1314" y="747" class="muted">slow + GPU-bound; the show is deterministic + light. Split</text>
+  <text x="1314" y="765" class="muted">so a panel host with no GPU still runs the show, and the</text>
+  <text x="1314" y="783" class="muted">heavy gen never competes with the player for the desktop.</text>
+
+  <!-- ===================== THE TAILNET LINK ===================== -->
+  <rect x="1282" y="836" width="606" height="284" rx="14" fill="#0c1014" stroke="#22d3ee" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="1300" y="862" class="mh" fill="#67e8f9">TAILNET LINK  (SC2 &#8596; hil08rd)</text>
+
+  <rect x="1300" y="878" width="570" height="78" rx="9" fill="#08171b" stroke="#22d3ee" stroke-width="1.5"/>
+  <rect x="1312" y="888" width="118" height="16" rx="8" fill="#22d3ee"/><text x="1371" y="900" text-anchor="middle" class="lpill">ASSET SYNC &#8594;</text>
+  <text x="1312" y="926" class="ct" fill="#9fe6f5">sync_assets.ps1</text>
+  <text x="1312" y="946" class="body mono">portraits + cutouts + rigs + clips : SC2 -&gt; hil</text>
+
+  <rect x="1300" y="964" width="570" height="78" rx="9" fill="#08171b" stroke="#22d3ee" stroke-width="1.5"/>
+  <rect x="1312" y="974" width="170" height="16" rx="8" fill="#22d3ee"/><text x="1397" y="986" text-anchor="middle" class="lpill">&#8592; qwen3 CALL (no-GPU hil)</text>
+  <text x="1312" y="1012" class="ct" fill="#9fe6f5">LP_OLLAMA = http://<producer-host>:11434</text>
+  <text x="1312" y="1032" class="body mono">hil's director -&gt; SC2's Ollama, only if hil has no GPU</text>
+
+  <text x="1300" y="1068" class="muted">If hil HAS a GPU: skip the qwen3 call (Ollama runs locally),</text>
+  <text x="1300" y="1086" class="muted">and the all-on-hil variant bakes on hil too &#8212; SC2 then</text>
+  <text x="1300" y="1104" class="muted">drops out entirely and the show is fully self-contained.</text>
+
+  <!-- cross-machine arrows: SC2 bakery -> tailnet -> hil clip library -->
+  <path d="M1567,529 L1620,529 L1620,830 L1255,830 L1255,860 L956,860 L956,896" stroke="#22d3ee" stroke-width="1.8" fill="none" stroke-dasharray="6 4" marker-end="url(#arrC)"/>
+  <text x="1300" y="822" class="flow" fill="#67e8f9">baked clip library &#8594; tailnet &#8594; hil (sync_assets.ps1)</text>
+
+  <!-- qwen3 tailnet call: hil director box -> SC2 -->
+  <path d="M1246,363 L1264,363" stroke="#f5a524" stroke-width="1.8" fill="none" marker-end="url(#arrA)"/>
+  <text x="1040" y="438" class="flow" fill="#f5cf8a">no-GPU: qwen3 over tailnet &#8594; SC2:11434</text>
+
+  <!-- ============ FOOTER ============ -->
+  <rect x="32" y="1132" width="1856" height="92" rx="10" fill="#0c1014" stroke="#243349"/>
+  <text x="46" y="1156" class="muted"><tspan fill="#34d399" font-weight="700">PRINCIPLES</tspan>  no-realtime &#183; deterministic-player &#183; async-generative-backfill &#183; fourth-wall-always-on &#183; verify-before-the-library &#183; show-light-bakery-heavy &#183; one-host-can-be-both (all-on-hil) &#183; tailnet-is-the-only-cross-machine-seam</text>
+  <text x="46" y="1180" class="muted"><tspan fill="#67e8f9" font-weight="700">MIGRATION STATE</tspan>  built+verified on SC2 (player + qwen3 director + first portrait + 6 modules) &#8594; moving the SHOW to hil08rd. Tooling built in parallel: <tspan class="mono" fill="#d7e0ea">bringup_host.ps1</tspan> (GPU-detect) &#183; <tspan class="mono" fill="#d7e0ea">deploy_host.ps1</tspan> &#183; <tspan class="mono" fill="#d7e0ea">sync_assets.ps1</tspan> + LP_OLLAMA &#183; <tspan class="mono" fill="#d7e0ea">panels.yaml</tspan>/runtime/panels.py (display fit).</text>
+  <text x="46" y="1204" class="muted"><tspan fill="#f5a524" font-weight="700">RUNBOOK ORDER</tspan>  (a) enable SSH on hil &#183; (b) bringup_host.ps1 GPU-detect &#183; (c) deploy_host.ps1 &#183; (d) sync_assets.ps1 + LP_OLLAMA if no GPU &#183; (e) panels.yaml fit &#183; (f) start + verify on real panels &#183; (g) confirm LED-card mapping.   <tspan fill="#5b6b7d">projects/living-portraits/living-portraits-architecture-v4.svg + MIGRATION.md &#183; 2026-05-26 &#183; supersedes v3</tspan></text>
+</svg>
