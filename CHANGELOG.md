@@ -85,7 +85,14 @@ ever made, with no mechanism that could notice. Diagnosed in
 - **Reserved long-term pins.** Found by running the new retrieval against the real
   journals rather than the fixture: pure decay retrieved nothing older than **9 days** from
   a 66-day life. Two slots are now reserved for distant memories that still stand out.
-  Phineas now reaches back **51 days**.
+  Retrieval now reaches back **weeks — a median of 18–21 days, and past 50 days from some
+  poses** (measured by replaying 20 real decisions per character in
+  `tests/test_context_graph_probe.py`), against `tail -5`'s 20 minutes.
+  **Corrected 2026-08-10:** this first read "Phineas now reaches back 51 days." That was
+  true of the sample taken and not a property of the system — reach is *pose-dependent*,
+  because hop-relevance pulls in memories made near where the body currently stands, and
+  how old those are depends on where "here" is. Measuring both characters across many
+  poses gives the range above; the single best number was the least honest one.
 - **An aggregate line** — *"you have wanted phineas:jealous_glare 2,147 times (19% of
   everything you have ever chosen)"*. The shape of a life, which no window of individual
   memories can carry.

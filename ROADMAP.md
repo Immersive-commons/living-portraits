@@ -30,7 +30,9 @@ All five items landed, verified on `hil` against the real journals (see `CHANGEL
 One thing the plan did not anticipate, found only by running it on production data: pure
 recency decay retrieved nothing older than **9 days** from a 66-day life, so the milestone
 would have shipped a system that remembers a week and calls it a past. Two reserved
-long-term pins fixed it; Phineas now reaches back 51 days. The fixture could not have
+long-term pins fixed it; retrieval now reaches back a median of 18-21 days and past 50 from
+some poses (reach is pose-dependent — hop-relevance pulls in memories made near where the body
+currently stands, so a single number flatters whichever pose it was sampled at). The fixture could not have
 surfaced that — only the real journal could.
 
 The table below is the plan as written, kept as the record of what was estimated.
