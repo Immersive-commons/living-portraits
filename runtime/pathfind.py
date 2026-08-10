@@ -82,6 +82,26 @@ def shortest_path(all_edges, start, goal, adj=None):
     return []
 
 
+def hops_from(all_edges, start, adj=None):
+    """{node: transition hops from `start`}, including {start: 0}. Unreachable nodes are
+    absent. One BFS, used as the RELEVANCE metric for journal retrieval: a memory made
+    two steps from where the character stands is nearer than one across the graph, and
+    the graph already knows the distance (runtime/journal_score.py)."""
+    if start is None:
+        return {}
+    adj = adj if adj is not None else _adjacency(all_edges)
+    dist = {start: 0}
+    q = deque([start])
+    while q:
+        n = q.popleft()
+        for e in adj.get(n, []):
+            to = e.get("to")
+            if to not in dist:
+                dist[to] = dist[n] + 1
+                q.append(to)
+    return dist
+
+
 def reachable_poses(all_edges, start, adj=None):
     """The set of poses reachable from `start` via transitions (excluding `start`).
     The heartbeat constrains the LLM's goal choice to this set so it can never pick

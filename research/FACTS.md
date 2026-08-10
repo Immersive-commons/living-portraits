@@ -25,15 +25,18 @@ Legend: [LP-*] = Living Portraits repo. [RAG-*] = life/research. [ASIMOV-*] = Re
   - Master Phineas Quill (panel A): a washed-up tragedian, mood "tragic-grandiose", voice en_GB-alan. Node gold.
   - Seraphina Vane: a Restoration-era wit, mood "wry-complicit", voice en_GB-jenny. Node teal.
   - MAXX-9 (panel B): a "legally-distinct discount action hero", voice en_US-ryan. Node magenta.
-- The personas relate: Phineas resents the brighter frame next door (Seraphina); MAXX-9 is the loud neon anachronism Phineas loathes. (Relationships are graph context, not just decoration.) [LP-CAST]
+- The personas relate: Phineas resents the brighter frame next door (Seraphina); MAXX-9 is the loud neon anachronism Phineas loathes. **Relationships are reconstructed at READ time, per character, from what each one can actually see** — since v0.3.0 each prompt carries a line built from the other panel's own published pose and last mood, so the resentment is a response to a neighbour's actual state rather than a standing fact. Nothing relational is stored: there are **zero cross-character edges** in the graph, by design, which is also how Generative Agents handles relationships. A panel that has gone dark is simply unseen. [LP-CAST]
+- CORRECTED 2026-08-10: this line previously read "(Relationships are graph context, not just decoration.)" That was false — the relationship lived in `gallery.yaml` prose and one clause of a `gen_prompt`, and the graph had no cross-character edges to carry it. It is now true in the stronger, read-time form above.
 
 ### [LP-HEARTBEAT] The heartbeat memory loop (AUTONOMY.md)
 - An LLM "heartbeat" gives each portrait a life: `director/heartbeat.py` is the slow brain that runs sense, then think, then write.
   - sense: pulls real-world context (see [LP-CONTEXT]) plus each character's recent pose state and journal.
-  - think: a single GLM decision (model glm-4.5-air) picks a goal pose for the character.
+  - think: a single GLM decision (model `glm-5.1`) picks a goal pose for the character, plus a free-text mood and the mood-band the body understands.
   - write: writes `data/mind/intent.json` (the goal) and appends one line to `data/mind/journal/<char>.jsonl` (the character's inner monologue, fed back next tick).
 - The walker reads the graph and the intent: `runtime/mind.py:decide()` runs `runtime/pathfind.py:next_step()` (a BFS over the transition edges) to find the next single hop toward the goal, forces that one transition, lands one pose closer, and asks again. A visible step-by-step walk. At the goal it pins on idle loops.
-- THE GRAPH IS THE MEMORY the loop reads and writes: the heartbeat reads pose state + journal and writes intent; the walker reads intent + the graph and writes pose state. Single-writer per file, no races. All writes atomic (tmp + os.replace). [LP-HEARTBEAT]
+- **The graph is the MAP the loop reads. The journal is the MEMORY it writes.** The heartbeat reads pose state + journal and writes intent; the walker reads intent + the graph and writes pose state. The graph itself is read-only at runtime — it is an asset manifest grown offline by the generation pipeline, not something experience accretes into. Single-writer per file, no races. All writes atomic (tmp + os.replace). [LP-HEARTBEAT]
+- Since v0.3.0 the journal is read by SCORE, not by recency: recency decay + importance as surprisal of the want + relevance in transition hops, under a token budget, with two slots reserved for distant memories that still stand out (`runtime/journal_score.py`). The hop-distance term is the part that needs the graph — a memory made two steps from where the character stands is nearer than one across the graph. [LP-HEARTBEAT]
+- CORRECTED 2026-08-10: this previously read "THE GRAPH IS THE MEMORY the loop reads and writes." The loop reads the graph and writes two files that are not in it, so as stated it was false.
 
 ### [LP-PRECEDENCE] One graph, layered traversals (AUTONOMY.md + circadian.py)
 - Three goal-setters drive the same body, in strict precedence:
@@ -51,7 +54,7 @@ Legend: [LP-*] = Living Portraits repo. [RAG-*] = life/research. [ASIMOV-*] = Re
 - Fail-soft by contract: it swallows ALL failure (no token, network down, non-2xx, bad JSON) and returns an empty string, never raising. No network at import time. TTL-cached to `data/mind/context.json` (15 min TTL) so almost every ~4-min tick is served from cache with zero network. A dead source just omits the clause; it can NEVER break a heartbeat tick. [LP-CONTEXT]
 
 ### [LP-BRAIN] The brain (AUTONOMY.md)
-- Model: glm-4.5-air (fast, cheap, right for a per-tick decision; glm-4.6 available for richer Phase-2 prompts).
+- Model: `glm-5.1` for both the per-tick decision and Phase-2 pose authorship (`heartbeat.PROSE_MODEL`, `llm.DEFAULT_MODEL`). It was `glm-4.5-air` through 2026-07; that name is stale wherever it still appears.
 - Path: `director/llm.py` posts to the IC z.ai gateway (Anthropic Messages shape) with an IC-minted `agt_` proxy key that carries ZERO IC tool scopes, so it is safe on an unattended host. The gateway holds the real Z.ai org key and meters a weekly token budget. [LP-BRAIN]
 
 ### [LP-DEPLOY] Where it runs (README.md + AUTONOMY.md)

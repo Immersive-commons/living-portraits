@@ -174,7 +174,7 @@
   <!-- ===================== MACHINE B: supercommons2 (THE BAKERY) ===================== -->
   <rect x="1282" y="116" width="606" height="704" rx="14" fill="#13100b" stroke="#f5cf8a" stroke-width="1.6"/>
   <rect x="1282" y="116" width="606" height="40" rx="14" fill="#2a2310"/>
-  <text x="1300" y="143" class="mh" fill="#f5cf8a">MACHINE B &#183; supercommons2  (<producer-host>)</text>
+  <text x="1300" y="143" class="mh" fill="#f5cf8a">MACHINE B &#183; supercommons2  (100.123.185.12)</text>
   <text x="1872" y="143" text-anchor="end" class="muted mono" fill="#67e8f9">SOURCE / GPU</text>
 
   <text x="1300" y="180" class="zoneh" fill="#f5cf8a">GPU BACKEND  &#183;  bakes assets; optionally serves qwen3 to hil</text>
@@ -184,7 +184,7 @@
   <text x="1380" y="214" class="chip" fill="#34d399">stays put</text>
   <text x="1312" y="240" class="ct">SC2 box</text>
   <text x="1312" y="260" class="body">i9-9900K &#183; 64 GB &#183; RTX 2080 Ti 11 GB</text>
-  <text x="1312" y="278" class="muted mono" fill="#5b6b7d">immer@<producer-host> &#183; Win 11 26200 &#183; shares inference-eng</text>
+  <text x="1312" y="278" class="muted mono" fill="#5b6b7d">immer@100.123.185.12 &#183; Win 11 26200 &#183; shares inference-eng</text>
 
   <!-- gen pipeline on SC2 -->
   <rect x="1300" y="296" width="278" height="90" rx="9" fill="#0c1f17" stroke="#34d399" stroke-width="1.6"/>
@@ -234,7 +234,7 @@
 
   <rect x="1300" y="964" width="570" height="78" rx="9" fill="#08171b" stroke="#22d3ee" stroke-width="1.5"/>
   <rect x="1312" y="974" width="170" height="16" rx="8" fill="#22d3ee"/><text x="1397" y="986" text-anchor="middle" class="lpill">&#8592; qwen3 CALL (no-GPU hil)</text>
-  <text x="1312" y="1012" class="ct" fill="#9fe6f5">LP_OLLAMA = http://<producer-host>:11434</text>
+  <text x="1312" y="1012" class="ct" fill="#9fe6f5">LP_OLLAMA = http://100.123.185.12:11434</text>
   <text x="1312" y="1032" class="body mono">hil's director -&gt; SC2's Ollama, only if hil has no GPU</text>
 
   <text x="1300" y="1068" class="muted">If hil HAS a GPU: skip the qwen3 call (Ollama runs locally),</text>

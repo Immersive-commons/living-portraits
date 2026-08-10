@@ -255,7 +255,7 @@ class GraphCycler:
         mask = circadian.bedtime_labels(self.spec, self.character)   # keep the daytime walk out of the bedroom
         self._last_ctx_energy = self._context_energy()   # cache for the pick log + feed the policy
         self.cur = policy.choose(
-            self.node, out, self.all, goal=goal, mood=cobj.get("mood"),
+            self.node, out, self.all, goal=goal, mood=cobj.get("mood"), band=cobj.get("band"),
             route=cobj.get("route", "wander"), exclude=mask, prev_node=self.prev_node,
             last_id=self.last_id, last_label=self.last_label,
             recent_clips=self.recent_clips, recent_nodes=self.recent_nodes, rng=random,

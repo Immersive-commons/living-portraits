@@ -1,6 +1,6 @@
 # living-portraits -- self-heal watchdog (install/)
 
-Makes the show **durable** on supercommons2 (`immer@<producer-host>`): the two
+Makes the show **durable** on supercommons2 (`immer@100.123.185.12`): the two
 pythonw processes that drive the panels come back by themselves after a crash,
 a sign-out/in, or a reboot, and a 5-minute watchdog restarts whichever one dies
 between reboots.
@@ -55,20 +55,20 @@ project root as the parent of its own folder).
 . C:\Users\jtole\Documents\2026\life\scripts\invoke-remote-ps.ps1
 
 # 1. Make sure the install dir exists on SC2.
-Invoke-RemotePS -Host_ immer@<producer-host> -Script @'
+Invoke-RemotePS -Host_ immer@100.123.185.12 -Script @'
 New-Item -ItemType Directory -Force -Path C:\Users\immer\living-portraits\install | Out-Null
 "install dir ready"
 '@
 
 # 2. scp the two files (straight scp; they are pure ASCII, no BOM).
 scp C:\Users\jtole\Documents\2026\life\projects\living-portraits\install\watchdog.ps1 `
-    immer@<producer-host>:C:/Users/immer/living-portraits/install/watchdog.ps1
+    immer@100.123.185.12:C:/Users/immer/living-portraits/install/watchdog.ps1
 scp C:\Users\jtole\Documents\2026\life\projects\living-portraits\install\install_tasks.ps1 `
-    immer@<producer-host>:C:/Users/immer/living-portraits/install/install_tasks.ps1
+    immer@100.123.185.12:C:/Users/immer/living-portraits/install/install_tasks.ps1
 
 # 3. Run the installer on SC2. It registers all three tasks, smoke-runs the
 #    watchdog once, and prints the final task table.
-Invoke-RemotePS -Host_ immer@<producer-host> -Script @'
+Invoke-RemotePS -Host_ immer@100.123.185.12 -Script @'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\immer\living-portraits\install\install_tasks.ps1
 '@
 ```
@@ -92,7 +92,7 @@ healed within 5 minutes without waiting for the next logon.
 
 ```powershell
 . C:\Users\jtole\Documents\2026\life\scripts\invoke-remote-ps.ps1
-Invoke-RemotePS -Host_ immer@<producer-host> -Script @'
+Invoke-RemotePS -Host_ immer@100.123.185.12 -Script @'
 # 1. All three tasks exist with the right triggers + interactive principal.
 Get-ScheduledTask -TaskName lp-player, lp-director, lp-watchdog |
   Select-Object TaskName, State,
@@ -122,7 +122,7 @@ wait the full 5 minutes):
 
 ```powershell
 . C:\Users\jtole\Documents\2026\life\scripts\invoke-remote-ps.ps1
-Invoke-RemotePS -Host_ immer@<producer-host> -Script @'
+Invoke-RemotePS -Host_ immer@100.123.185.12 -Script @'
 # 1. Kill the player process (find it by command line, stop that PID).
 $p = Get-CimInstance Win32_Process -Filter "Name = '"'"'pythonw.exe'"'"'" |
      Where-Object { $_.CommandLine -match "player\.py" } | Select-Object -First 1

@@ -1,26 +1,38 @@
-"""autogen.py -- the portraits GROW THEIR OWN POSES (Phase 2, HUMAN-GATED).
+"""autogen.py -- the portraits GROW THEIR OWN POSES (Phase 2, AUTONOMOUS).
 
 Flow:
   1. the heartbeat (director/heartbeat.py, propose-mode) writes PROPOSALS to
      data/mind/proposals.json -- a new pose the character wishes it had: a still
-     /imagine prompt + a transition motion + a couple of idle motions. status=pending.
-  2. a human reviews + approves:  python pipeline/autogen.py review / approve <id>
-  3. this worker generates the APPROVED ones via Midjourney:
-        upload hub still -> --oref identity lock
-        imagine the new still  -> download to data/gen/<char>_<label>.png
-        video hub->new (transition)   + its FREE reverse (gif flipped)
-        video new (idle loops, --end loop)
+     prompt + a transition motion + a couple of idle motions. status=pending.
+  2. NO APPROVAL STEP. Since 2026-08-09 the worker generates `pending` straight through:
+     the portraits decide what they want and go get it. `--gated` restores human review.
+  3. the worker builds the pose (Higgsfield by default -- see pipeline/hf_gen.py):
+        still: gpt_image_2, anchored with --image to the CANONICAL hub still
+        edge:  kling3_0 first->last, hub still -> new still
+        back:  kling3_0 first->last, new still -> hub still   (GENERATED, never flipped)
+        idles: kling3_0 with start == end, so the clip leaves and returns
         mp4 -> gif into data/clips/_proto/<char>_<edgelabel>_v0.gif
      then records the pose in data/mind/autogen_poses.json (which video_graph.build()
      merges atomically) and runs build. The walker hot-reloads and can now walk there.
 
-Guardrails (every one matters for an unattended account):
+WHY THE REVERSE IS GENERATED, NOT FLIPPED: the MJ path faked the return edge by playing
+the forward clip backwards. It is free and it looks wrong -- reversed playback runs the
+physics backwards, so cloth settles upward, flame flickers in reverse, and a figure rising
+from a chair reads as being pulled into it. The graph is walked in BOTH directions, so both
+directions get real motion. That is the whole reason first+last-frame generation was worth
+moving to.
+
+Guardrails -- these, not human review, are what make an unattended loop safe:
+  * a CLIP budget: CLIP_DAILY_CAP across the system, CLIP_CHAR_CAP per character. 13/day
+    x 7.5 credits x 30 days = 2925 against a 3000/month allowance, so the worst case the
+    loop can reach is "spends the plan it was given" -- never twice.
+  * budget is re-checked before EVERY clip, and the resume logic skips artifacts already on
+    disk, so running out mid-pose costs nothing and the next run continues it.
   * EVERY prompt passes director.mj_safe.check first; a hard-block -> mark failed, NEVER
     submit, NEVER retry (retrying into a moderation block EXTENDS it).
-  * a daily per-character budget caps spend (data/mind/gen_budget.json).
   * single-flight: one generate run at a time (a lock file).
-  * on any MJ error whose text smells like moderation/block, STOP the whole run and
-    record a cooldown -- do not march into more submits.
+  * on a rate-limit or moderation-smelling error, STOP and record a cooldown rather than
+    marching into more submits.
 
 The Midjourney client + imageio are imported LAZILY inside the generate path, so this
 module imports + the queue/budget/review CLI run anywhere (the dev box has no vendored
@@ -66,10 +78,23 @@ def _telemetry(event, **fields):
     except Exception:
         pass
 COOLDOWN = MIND / "autogen_cooldown.json"
+CLIP_BUDGET = MIND / "clip_budget.json"
 GEN_DIR = ROOT / "data" / "gen"
 PROTO = ROOT / "data" / "clips" / "_proto"
 
-DAILY_CAP = 9999              # effectively UNLIMITED (relax is unlimited on this plan; the slow relax
+# BACKEND: "hf" = Higgsfield (first+last frame, metered credits) -- the default since
+# 2026-08-09. "mj" = the original Midjourney path, RETIRED but deliberately kept intact:
+# it is the only reference for the --oref identity lock and the moderation guard, and MJ
+# remains the fallback if the HF session or plan ever goes away. Select with --backend.
+BACKEND = os.environ.get("LP_GEN_BACKEND", "hf")
+
+# CLIP budget -- the Higgsfield unit of spend. Derived from the plan, not chosen:
+# 3000 credits/month (granted the 23rd, NOT rolled over) / 7.5 per kling3_0 clip at
+# 1:1/5s/sound-off = ~400 clips/month = ~13/day spent evenly.
+CLIP_DAILY_CAP = 13           # whole system, all characters, per day
+CLIP_CHAR_CAP = 6             # per character per day (2 characters -> 12, inside the 13)
+
+DAILY_CAP = 9999              # MJ-era POSE cap. effectively UNLIMITED (relax is unlimited on this plan; the slow relax
                               # queue + the single-flight lock self-rate-limit). Kept as a high runaway
                               # backstop only -- not a real per-character ceiling (Ray: no limits 2026-06-18).
                               # was 15. Original note: new poses per character per day. Not a hard ceiling --
@@ -150,6 +175,8 @@ def _today():
 
 
 def budget_left(character):
+    """Poses (proposals) left today for this character. Kept for the MJ path, whose unit of
+    spend was a whole pose because relax renders were free."""
     b = _load(BUDGET, {})
     rec = b.get(character, {})
     used = rec.get("count", 0) if rec.get("date") == _today() else 0
@@ -162,6 +189,40 @@ def _spend(character):
     used = rec.get("count", 0) if rec.get("date") == _today() else 0
     b[character] = {"date": _today(), "count": used + 1}
     _save(BUDGET, b)
+
+
+# --- CLIP budget (the Higgsfield unit of spend) --------------------------------
+# Higgsfield bills per CLIP, not per pose, and one pose emits several clips (forward,
+# reverse, idles, sibling links). So the cap that matters counts clips.
+#
+# The numbers are derived, not picked: the plan grants 3000 credits/month and does NOT roll
+# them over, and kling3_0 @ 1:1/5s/sound-off is 7.5 credits, so ~400 clips/month ~= 13/day
+# is the pace that spends the allowance evenly instead of exhausting it mid-month.
+# Per character 6, so two characters can both work without either starving the other.
+def _clip_rec():
+    b = _load(CLIP_BUDGET, {})
+    return b if b.get("date") == _today() else {"date": _today(), "total": 0, "chars": {}}
+
+
+def clips_used(character=None):
+    r = _clip_rec()
+    return r["chars"].get(character, 0) if character else r["total"]
+
+
+def clip_budget_left(character):
+    """Clips this character may still generate today -- the BINDING limit is whichever of
+    the per-character cap and the whole-system cap runs out first."""
+    r = _clip_rec()
+    return max(0, min(CLIP_CHAR_CAP - r["chars"].get(character, 0),
+                      CLIP_DAILY_CAP - r["total"]))
+
+
+def _spend_clip(character, n=1):
+    r = _clip_rec()
+    r["total"] += n
+    r["chars"][character] = r["chars"].get(character, 0) + n
+    _save(CLIP_BUDGET, r)
+    return r
 
 
 def in_cooldown():
@@ -552,10 +613,166 @@ def _release_lock():
         pass
 
 
-def run_generate(dry_run=False, limit=None, log=print, auto=False):
-    # auto = AUTONOMOUS Phase 2: also generate `pending` proposals without a human approval
-    # step. The safety net for unattended runs is the linter (mj_safe), the daily budget
-    # (DAILY_CAP), the moderation cooldown, and the single-flight lock -- NOT human review.
+def generate_one_hf(p, *, dry_run=False, log=print):
+    """Generate one approved proposal via HIGGSFIELD. Returns True on success.
+
+    Differs from the MJ path in three ways that matter:
+
+    * An edge is a FIRST->LAST interpolation, not a forward animation that hopefully lands
+      near the target. Both endpoints are real stills, so continuity is structural.
+    * Spend is metered PER CLIP, so the budget is checked before every single clip and the
+      run stops cleanly when it runs out. Nothing is wasted: the resume logic below skips
+      whatever is already on disk, so tomorrow's run continues this pose mid-way.
+    * The REVERSE edge is GENERATED, not flipped. The MJ path could only animate forward, so
+      it faked the return by playing the forward clip backwards -- and that looks wrong,
+      because reversed playback runs the physics backwards: cloth settles upward, the candle
+      flicker runs in reverse, a figure rising from a chair reads as being pulled into it.
+      FLF2V can render the true return (start=new pose, end=hub), so it does. It costs a
+      second clip and it is worth it -- every edge in the graph is walkable in both
+      directions with motion that obeys gravity in both.
+
+    An idle loop is generated with start == end: the clip leaves the pose and returns to it,
+    so idles chain forever.
+    """
+    from pipeline import hf_gen
+
+    char, label = p["character"], p["label"]
+    _t0 = time.time()
+    verdict, lab = plan(p)
+    if not verdict["ok"]:
+        log("  REJECT %s:%s -- %s" % (char, label, "; ".join(verdict["reasons"])))
+        if not dry_run:
+            set_status(p["id"], "failed", fail_reason="; ".join(verdict["reasons"]))
+            _telemetry("gen", char=char, label=label, outcome="rejected", backend="hf",
+                       reason="; ".join(verdict["reasons"])[:200])
+        return False
+    hub, fwd, rev = lab["hub"], lab["fwd"], lab["rev"]
+    g = video_graph.VideoGraph.load()
+    hub_img = (g.nodes.get("%s:%s" % (char, hub)) or {}).get("image")
+    if not hub_img or not (ROOT / hub_img).exists():
+        log("  SKIP %s:%s -- hub still %s missing" % (char, label, hub_img))
+        if not dry_run:
+            set_status(p["id"], "failed", fail_reason="hub still missing")
+        return False
+
+    idles = p.get("idles", [])
+    safe_neg = ", ".join(verdict["safe_negatives"])
+    still_png = GEN_DIR / ("%s_%s.png" % (char, label))
+    fwd_gif = PROTO / ("%s_%s_v0.gif" % (char, fwd))
+    rev_gif = PROTO / ("%s_%s_v0.gif" % (char, rev))
+
+    def _have(path):
+        return Path(path).exists() and Path(path).stat().st_size > 0
+
+    need_still = not _have(still_png)
+    need_fwd = not _have(fwd_gif)
+    need_rev = not _have(rev_gif)
+    need_idles = [i for i in idles if not _have(PROTO / ("%s_%s_v0.gif" % (char, i["id"])))]
+    n_clips = (1 if need_fwd else 0) + (1 if need_rev else 0) + len(need_idles)
+    left = clip_budget_left(char)
+
+    log("  PLAN %s:%s hub=%s need[still=%s fwd=%s rev=%s idles=%s] clips=%d budget_left=%d "
+        "(char %d/%d, day %d/%d)" % (
+            char, label, hub, need_still, need_fwd, need_rev, [i["id"] for i in need_idles],
+            n_clips, left, clips_used(char), CLIP_CHAR_CAP, clips_used(), CLIP_DAILY_CAP))
+    if dry_run:
+        return False
+    if n_clips and left <= 0:
+        log("  clip budget exhausted -- leaving %s:%s for the next run" % (char, label))
+        return False
+
+    ok, detail = hf_gen.healthy()
+    if not ok:
+        log("  HF unavailable: %s" % detail)
+        _telemetry("gen", char=char, label=label, outcome="skipped", backend="hf",
+                   reason=detail[:200])
+        return False
+
+    set_status(p["id"], "generating")
+    try:
+        # 1. the new pose still. --image is anchored to the CANONICAL hub still so the face
+        #    does not drift a little further with every generation.
+        if need_still:
+            hf_gen.generate_still(p["still_prompt"], still_png,
+                                  ref_png=ROOT / hub_img, negatives=safe_neg)
+            log("    still -> %s" % still_png.name)
+
+        # 2. the forward edge: hub still -> new still.
+        if need_fwd:
+            if clip_budget_left(char) <= 0:
+                log("    budget ran out before the forward edge -- resuming next run")
+                set_status(p["id"], "approved")
+                return False
+            mp4 = PROTO / ("%s_%s_v0.mp4" % (char, fwd))
+            hf_gen.generate_clip(ROOT / hub_img, still_png,
+                                 p.get("transition_motion", ""), mp4)
+            _spend_clip(char)
+            _mp4_to_gif(mp4, fwd_gif)
+            log("    fwd -> %s (%d clips left today)" % (fwd_gif.name, clip_budget_left(char)))
+
+        # 3. the reverse edge -- GENERATED with the endpoints swapped, never flipped.
+        #    A flipped clip plays the physics backwards and reads as wrong; the graph is
+        #    walked in both directions, so both directions get real motion.
+        if need_rev:
+            if clip_budget_left(char) <= 0:
+                log("    budget ran out before the reverse edge -- resuming next run")
+                set_status(p["id"], "approved")
+                return False
+            mp4 = PROTO / ("%s_%s_v0.mp4" % (char, rev))
+            hf_gen.generate_clip(still_png, ROOT / hub_img,
+                                 p.get("reverse_motion", "") or p.get("transition_motion", ""),
+                                 mp4)
+            _spend_clip(char)
+            _mp4_to_gif(mp4, rev_gif)
+            log("    rev -> %s (%d clips left today)" % (rev_gif.name, clip_budget_left(char)))
+
+        # 4. idle self-loops at the new pose: start == end.
+        for i in need_idles:
+            if clip_budget_left(char) <= 0:
+                log("    budget ran out before idle %s -- resuming next run" % i["id"])
+                set_status(p["id"], "approved")
+                return False
+            gif = PROTO / ("%s_%s_v0.gif" % (char, i["id"]))
+            mp4 = PROTO / ("%s_%s_v0.mp4" % (char, i["id"]))
+            hf_gen.generate_clip(still_png, still_png, i.get("motion", ""), mp4)
+            _spend_clip(char)
+            _mp4_to_gif(mp4, gif)
+            log("    idle %s -> %s (%d left today)" % (i["id"], gif.name, clip_budget_left(char)))
+
+        _record_pose(p, hub, fwd, rev)
+        _rebuild_graph(log)
+        _spend(char)
+        set_status(p["id"], "done")
+        _telemetry("gen", char=char, label=label, outcome="ok", backend="hf",
+                   clips=n_clips, secs=round(time.time() - _t0, 1))
+        log("  DONE %s:%s in %.0fs" % (char, label, time.time() - _t0))
+        return True
+    except Exception as e:
+        kind = getattr(e, "kind", "transient")
+        log("  FAIL %s:%s (%s) -- %s" % (char, label, kind, e))
+        # a capability error is deterministic: the model cannot do what we asked, and
+        # retrying just burns the queue. Everything else is worth another run.
+        set_status(p["id"], "failed" if kind == "capability" else "approved",
+                   fail_reason=str(e)[:300])
+        _telemetry("gen", char=char, label=label, outcome="failed", backend="hf",
+                   reason=str(e)[:200], kind=kind)
+        if kind == "rate_limit":
+            _set_cooldown(600, "higgsfield concurrency/rate limit")
+        return False
+
+
+def run_generate(dry_run=False, limit=None, log=print, auto=True):
+    # AUTONOMOUS BY DEFAULT (2026-08-09). The portraits generate what they want without
+    # asking: `pending` proposals are generated alongside `approved` ones, so nothing waits
+    # on a human.
+    #
+    # What makes that safe is no longer review, it is the rails -- and the clip budget is
+    # the load-bearing one. 13 clips/day x 7.5 credits = 97.5/day, and 30 days of FULL burn
+    # is 2925 against a 3000/month allowance. The worst case the loop can reach is therefore
+    # "spends the plan it was given", never "spends the plan twice". The rest: the prompt
+    # linter, the rate-limit cooldown, and the single-flight lock.
+    #
+    # Pass auto=False (CLI: `--gated`) to put the human back in front of it.
     statuses = ("approved", "pending") if auto else ("approved",)
     props = load_proposals()["proposals"]
     queue = [p for p in props if p["status"] in statuses]
@@ -577,16 +794,31 @@ def run_generate(dry_run=False, limit=None, log=print, auto=False):
                 _telemetry("orphan_recover", char=op["character"], label=op["label"])
             queue = [p for p in load_proposals()["proposals"] if p["status"] in statuses]
         done = 0
+        backend = (os.environ.get("LP_GEN_BACKEND") or BACKEND).lower()
+        gen = generate_one_hf if backend == "hf" else generate_one
+        log("backend=%s" % backend)
         for p in queue:
             if limit and done >= limit:
                 break
-            if budget_left(p["character"]) <= 0:
+            if backend == "hf":
+                # the whole-system cap is checked FIRST: once the day's 13 are spent it does
+                # not matter whose turn it is, so stop the run rather than walk the queue.
+                if clips_used() >= CLIP_DAILY_CAP:
+                    log("  daily clip cap reached (%d/%d) -- stopping run" % (
+                        clips_used(), CLIP_DAILY_CAP))
+                    break
+                if clip_budget_left(p["character"]) <= 0:
+                    log("  %s has used its %d clips today -- skipping %s" % (
+                        p["character"], CLIP_CHAR_CAP, p["label"]))
+                    continue
+            elif budget_left(p["character"]) <= 0:
                 log("  budget exhausted for %s today (cap %d) -- skipping %s" % (
                     p["character"], DAILY_CAP, p["label"]))
                 continue
-            if generate_one(p, dry_run=dry_run, log=log):
+            if gen(p, dry_run=dry_run, log=log):
                 done += 1
-        log("generate run complete: %d generated." % done)
+        log("generate run complete: %d generated. clips today: %d/%d" % (
+            done, clips_used(), CLIP_DAILY_CAP))
     finally:
         if not dry_run:
             _release_lock()
@@ -689,22 +921,33 @@ def _status_report():
         out.append("LOCK: !! STALE (pid=%s dead/old, age=%.0fmin) -- auto-stolen next run" % (pid, age / 60))
 
     b = _load(BUDGET, {})
-    out.append("BUDGET today: %s  (DAILY_CAP=%d)" % (
+    out.append("POSE BUDGET today: %s  (DAILY_CAP=%d, MJ-era)" % (
         {k: v.get("count") for k, v in b.items() if v.get("date") == _today()}, DAILY_CAP))
+    cr = _clip_rec()
+    out.append("CLIP BUDGET today: %d/%d system  |  %s  (per-character cap %d)" % (
+        cr["total"], CLIP_DAILY_CAP,
+        ", ".join("%s %d/%d" % (c, n, CLIP_CHAR_CAP)
+                  for c, n in sorted(cr["chars"].items())) or "nothing spent",
+        CLIP_CHAR_CAP))
+    out.append("  ~%.1f credits spent today (%.1f/clip)" % (
+        cr["total"] * 7.5, 7.5))
     cooled, until = in_cooldown()
     out.append("COOLDOWN: " + (time.ctime(until) if cooled else "none"))
     return "\n".join(out)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Living-portraits autogen (human-gated pose growth)")
+    ap = argparse.ArgumentParser(description="Living-portraits autogen (AUTONOMOUS pose growth; --gated to require approval)")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("list")
     sub.add_parser("review")
     a = sub.add_parser("approve"); a.add_argument("id")
     r = sub.add_parser("reject"); r.add_argument("id")
     g = sub.add_parser("generate"); g.add_argument("--dry-run", action="store_true"); g.add_argument("--limit", type=int)
-    g.add_argument("--auto", action="store_true", help="AUTONOMOUS: also generate pending proposals (no human approval); rails = linter + daily cap + cooldown + lock")
+    g.add_argument("--auto", action="store_true", default=True,
+                   help="(default) AUTONOMOUS: generate pending proposals with no human approval")
+    g.add_argument("--gated", dest="auto", action="store_false",
+                   help="put the human back in front: generate ONLY human-approved proposals")
     sub.add_parser("status")
     pr = sub.add_parser("propose")          # manual proposal (testing)
     pr.add_argument("--character", required=True); pr.add_argument("--label", required=True)

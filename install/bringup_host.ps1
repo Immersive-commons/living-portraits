@@ -51,7 +51,7 @@
 #   * ASSETS  -- syncer's sync_assets.ps1 mirrors SC2's data\gen + data\clips +
 #                the clip manifest down to this host (this script does NOT sync).
 #   * DIRECTOR -- set LP_OLLAMA on this host to the backend's Ollama endpoint
-#                (e.g. setx LP_OLLAMA http://<producer-host>:11434) so the local
+#                (e.g. setx LP_OLLAMA http://100.123.185.12:11434) so the local
 #                director loop talks to SC2's qwen3 instead of a missing local one.
 #                (See the GPU-absent tail of this script -- it prints the exact line.)
 #
@@ -498,7 +498,7 @@ function Invoke-CpuPath {
         Write-Host "  Portrait GENERATION and the qwen3 DIRECTOR come from the SC2 backend:"
         Write-Host "    * assets (data\gen, data\clips, manifest) arrive via syncer's sync_assets.ps1"
         Write-Host "    * point the local director at the backend's Ollama:"
-        Write-Host "        setx LP_OLLAMA http://<producer-host>:11434"
+        Write-Host "        setx LP_OLLAMA http://100.123.185.12:11434"
         Write-Host "  Segmentation (GrabCut) + rig math are pure opencv+numpy, so THIS host can"
         Write-Host "  still segment + re-rig synced cutouts locally -- it just cannot paint new"
         Write-Host "  portraits or run the ArcFace/VL verify gates at full strength."
@@ -589,7 +589,7 @@ if ($anyFail) {
 } else {
     Write-Host "GPU-absent path complete. This host is a display + re-rig node. Pair it with the"
     Write-Host "SC2 backend: run syncer's sync_assets.ps1 to mirror the rendered assets here, and"
-    Write-Host "set LP_OLLAMA to the backend's Ollama (setx LP_OLLAMA http://<producer-host>:11434)"
+    Write-Host "set LP_OLLAMA to the backend's Ollama (setx LP_OLLAMA http://100.123.185.12:11434)"
     Write-Host "so the local director loop reaches SC2's qwen3. Then install_tasks.ps1 wires the"
     Write-Host "player/director/watchdog scheduled tasks against the .venv this script just built."
 }

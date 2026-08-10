@@ -4,7 +4,7 @@
 #
 # WHY THIS EXISTS
 # ---------------
-# supercommons2 (SC2, immer@<producer-host>) has the RTX 2080 Ti. It bakes every
+# supercommons2 (SC2, immer@100.123.185.12) has the RTX 2080 Ti. It bakes every
 # per-character portrait / cutout / bg-plate / rig-spec and runs qwen3 for the
 # director. A second host with NO GPU (call it "hil") can still RUN the show --
 # player.py + stage_manager.py are pure-CPU at runtime -- but it has no way to
@@ -40,7 +40,7 @@
 #       TARGET host  data\gen + data\clips
 #
 # Both scp legs originate from the dev box, where key auth to each host is known
-# to work (per memory: `ssh immer@<producer-host>` is key-auth; the target is
+# to work (per memory: `ssh immer@100.123.185.12` is key-auth; the target is
 # whatever host the bring-up already brought onto the tailnet with the same key).
 # We do NOT assume SC2 itself can SSH to the target -- that is a separate trust
 # relationship the fleet does not generally grant, so host-to-host is OFF by
@@ -63,7 +63,7 @@
 #   ... -File install\sync_assets.ps1 -Target user@hil -Slugs phineas,seraphina
 #
 #   # Override the SC2 source host / project paths if they ever move:
-#   ... -Source immer@<producer-host> `
+#   ... -Source immer@100.123.185.12 `
 #       -SourceProject C:/Users/immer/living-portraits `
 #       -TargetProject C:/Users/immer/living-portraits
 #
@@ -94,16 +94,16 @@
 #
 # Then on the NO-GPU target, set the env var so its director calls SC2's Ollama
 # (SC2's Ollama listens on 127.0.0.1:11434; reach it from another host at its
-# tailnet IP <producer-host> -- confirmed by the supercommons2 memory note that
-# the Windows-host Ollama is at <producer-host>:11434, NOT localhost, from off-box):
+# tailnet IP 100.123.185.12 -- confirmed by the supercommons2 memory note that
+# the Windows-host Ollama is at 100.123.185.12:11434, NOT localhost, from off-box):
 #
-#       LP_OLLAMA = http://<producer-host>:11434/api/chat
+#       LP_OLLAMA = http://100.123.185.12:11434/api/chat
 #
 # Set it where the director's scheduled task can see it (a Machine-scope env var,
 # or inside the task's launcher), e.g.:
 #
 #       [Environment]::SetEnvironmentVariable(
-#           'LP_OLLAMA', 'http://<producer-host>:11434/api/chat', 'Machine')
+#           'LP_OLLAMA', 'http://100.123.185.12:11434/api/chat', 'Machine')
 #
 # With the env var unset (the SC2/full-local case) the const falls back to
 # 127.0.0.1 and nothing changes. NOTE: for an off-box client to reach it, SC2's
@@ -119,7 +119,7 @@ param(
     [string]$Target,
 
     # The GPU source. Defaults to SC2 (the canonical baker).
-    [string]$Source = 'immer@<producer-host>',
+    [string]$Source = 'immer@100.123.185.12',
 
     # Project roots on each host (forward slashes -- scp/ssh remote paths).
     [string]$SourceProject = 'C:/Users/immer/living-portraits',
@@ -409,7 +409,7 @@ Write-Host ''
 Write-Host 'All assets synced. Reminder: also apply the REMOTE DIRECTOR SWITCH on the'
 Write-Host 'target so its stage_manager calls SC2''s Ollama (see this script''s header):'
 Write-Host '  OLLAMA = os.environ.get("LP_OLLAMA", "http://127.0.0.1:11434/api/chat")'
-Write-Host '  LP_OLLAMA = http://<producer-host>:11434/api/chat   (set on the target)'
+Write-Host '  LP_OLLAMA = http://100.123.185.12:11434/api/chat   (set on the target)'
 Write-Host '=================================================================='
 
 # ===========================================================================

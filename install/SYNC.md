@@ -67,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 #   -Slugs phineas,seraphina      pin the slugs (skip SC2 discovery)
 #   -Direct                       try SC2 -> target directly (needs SC2->target trust)
 #   -DryRun                       list the worklist, copy nothing
-#   -Source immer@<producer-host>  override the GPU source host (default = SC2)
+#   -Source immer@100.123.185.12  override the GPU source host (default = SC2)
 #   -SourceProject / -TargetProject   override the per-host project roots
 #   -IdentityFile <path>          hand a specific key to scp/ssh
 ```
@@ -114,19 +114,19 @@ Then on the **target**, point its director at SC2's Ollama by setting the env va
 where the director's scheduled task can see it:
 
 ```
-LP_OLLAMA = http://<producer-host>:11434/api/chat
+LP_OLLAMA = http://100.123.185.12:11434/api/chat
 ```
 
 e.g. as a Machine-scope env var:
 
 ```powershell
 [Environment]::SetEnvironmentVariable(
-    'LP_OLLAMA', 'http://<producer-host>:11434/api/chat', 'Machine')
+    'LP_OLLAMA', 'http://100.123.185.12:11434/api/chat', 'Machine')
 ```
 
 With `LP_OLLAMA` **unset** (the SC2 full-local case) the const falls back to
 `127.0.0.1` and nothing changes -- so the same code runs on both the GPU host and
-the no-GPU host. The `<producer-host>:11434` address is correct for an off-box
+the no-GPU host. The `100.123.185.12:11434` address is correct for an off-box
 client: the supercommons2 memory note records that the Windows-host Ollama is
 reachable from another machine at its **tailnet IP**, not localhost.
 

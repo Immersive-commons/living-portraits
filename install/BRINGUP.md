@@ -1,7 +1,7 @@
 # living-portraits -- SC2 full-local bring-up (install/)
 
 Installs the **producer-side** generative deps on supercommons2
-(`immer@<producer-host>`) and runs the producer backfill so every rendered
+(`immer@100.123.185.12`) and runs the producer backfill so every rendered
 portrait lands in the clip library.
 
 This is the **second** install step, run AFTER the portraits exist and AFTER
@@ -17,7 +17,7 @@ it pip-installs into SC2's `.venv-gen` and writes the clip library on SC2.
 
 ## SC2 facts (the host this targets)
 
-- Host: `immer@<producer-host>`
+- Host: `immer@100.123.185.12`
 - Project: `C:\Users\immer\living-portraits`
 - Generative venv: `.venv-gen` (torch **2.5.1+cu121 already installed**)
 - Runtime venv: `.venv` (player/director -- not touched here)
@@ -73,10 +73,10 @@ deploy; this adds `sc2_bringup.ps1`), then run it on SC2 via `Invoke-RemotePS`.
 
 # 1. scp this script to SC2 (pure ASCII, no BOM -- straight scp is safe).
 scp C:\Users\jtole\Documents\2026\life\projects\living-portraits\install\sc2_bringup.ps1 `
-    immer@<producer-host>:C:/Users/immer/living-portraits/install/sc2_bringup.ps1
+    immer@100.123.185.12:C:/Users/immer/living-portraits/install/sc2_bringup.ps1
 
 # 2. Run it on SC2. Streams every step's OK/SKIP/FAIL + the final summary back.
-Invoke-RemotePS -Host_ immer@<producer-host> -Script @'
+Invoke-RemotePS -Host_ immer@100.123.185.12 -Script @'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\immer\living-portraits\install\sc2_bringup.ps1
 '@
 ```

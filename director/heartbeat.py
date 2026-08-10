@@ -39,7 +39,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from director import context as ctx, llm, mj_safe
-from runtime import circadian, pathfind, video_graph
+from runtime import circadian, journal_score, pathfind, policy, video_graph
 
 try:                                   # optional, fail-open telemetry (no-op if absent/off)
     from director import otel
@@ -69,7 +69,11 @@ BEDTIME_SPEC = ROOT / "prompts" / "bedtime_routine.json"
 
 DEFAULT_INTERVAL = 240.0     # ~4 min awake cadence
 NIGHT_INTERVAL = 900.0       # 15 min when everyone's asleep (circadian owns the body)
-JOURNAL_TAIL = 5             # recent monologue lines fed back as context
+JOURNAL_TOKENS = 700         # token budget for RETRIEVED monologue (runtime/journal_score.py).
+                             # Replaced JOURNAL_TAIL = 5, which showed the character ~35 minutes
+                             # of a 64-day life and made a 2,060-repetition rut unnoticeable.
+NEIGHBOUR_STALE = 1800.0     # ignore a neighbour's published pose older than this (dark panel)
+FRONTIER_SHOWN = 2           # unvisited poses named per tick ("a version of you you've never been")
 PROSE_MODEL = "glm-5.1"      # GLM 5.2-class for CREATIVE pose/voice authorship (was glm-4.6).
                              # Per-tick decisions also run glm-5.1 via DEFAULT_MODEL now. If the
                              # heartbeat feels slow, revert ticks to "glm-4.5-air" (fast) in llm.py.
@@ -204,19 +208,76 @@ def _pose_label(graph, node):
     return "%s (%s)" % (pose, gp) if gp else pose
 
 
-def _journal_tail(character, n=JOURNAL_TAIL):
+def _journal_entries(character):
+    return journal_score.load(JOURNAL_DIR / (character + ".jsonl"))
+
+
+def _display_name(character):
+    return _load_char_spec(character).get("name") or character.title()
+
+
+def _neighbour_lines(character, now=None):
+    """What this character can ACTUALLY SEE of the others on the wall: each neighbour's
+    current pose and the mood behind its last decision.
+
+    Reconstructed at READ time from files that already exist and are already
+    single-writer (`pose/<char>.json` written by that panel's walker, the neighbour's own
+    journal). Nothing is stored: this is a cross-character edge computed per reader, which
+    is also how Generative Agents handles relationships. Asymmetric on purpose -- each
+    character's read of the other is built inside its own prompt.
+
+    A neighbour whose panel has gone dark (pose file older than NEIGHBOUR_STALE) is simply
+    not seen, rather than reported as frozen in place. Fail-soft: any error -> no line."""
+    now = time.time() if now is None else now
+    out = []
     try:
-        lines = (JOURNAL_DIR / (character + ".jsonl")).read_text(encoding="utf-8").splitlines()
+        others = sorted(p.stem for p in POSE_DIR.glob("*.json"))
     except Exception:
         return []
-    out = []
-    for ln in lines[-n:]:
+    for other in others:
+        if other == character:
+            continue
         try:
-            d = json.loads(ln)
-            out.append("- (%s, feeling %s) %s" % (d.get("pose", "?"), d.get("mood", "?"), d.get("reason", "")))
+            path = POSE_DIR / (other + ".json")
+            if now - path.stat().st_mtime > NEIGHBOUR_STALE:
+                continue                                   # dark panel: unseen, not "still"
+            d = json.loads(path.read_text(encoding="utf-8"))
+            node = d.get("node")
+            if not node:
+                continue
+            pose = str(node).split(":")[-1]
+            mood = ""
+            entries = _journal_entries(other)
+            if entries:
+                mood = (entries[-1].get("mood") or "").strip()
+            if mood:
+                out.append('On the wall beside you, %s is at %s, feeling "%s".'
+                           % (_display_name(other), pose, mood))
+            else:
+                out.append("On the wall beside you, %s is at %s." % (_display_name(other), pose))
         except Exception:
             continue
     return out
+
+
+def _frontier_line(graph, node, goals, visited, hops):
+    """The poses reachable from here that this character has NEVER been in.
+
+    3D-Mem (arXiv 2411.17735) calls this frontier memory: what has not been explored is
+    itself retrievable content. It turns the graph's least flattering statistic -- the
+    long tail of near-dead-end poses nothing ever walks to -- into a want that is grounded
+    in real topology instead of persona prose. Empty (all explored) -> ""."""
+    unseen = [g for g in goals if g not in visited]
+    if not unseen:
+        return ""
+    unseen.sort(key=lambda g: (hops.get(g, 10 ** 6), g))
+    named = []
+    for g in unseen[:FRONTIER_SHOWN]:
+        d = hops.get(g)
+        step = "%d steps away" % d if d else "right beside you"
+        named.append("%s (%s)" % (_pose_label(graph, g), step))
+    return ("There are %d poses you have never once been in. The nearest: %s."
+            % (len(unseen), "; ".join(named)))
 
 
 def _append_journal(character, entry):
@@ -236,11 +297,25 @@ def _daypart(hour):
     return "night"
 
 
-def _build_user_prompt(graph, character, node, dwell, goals, hour):
+def _build_user_prompt(graph, character, node, dwell, goals, hour, hops=None):
     now = datetime.datetime.now()
+    ts = time.time()
     menu = "\n".join("- %s: %s" % (g, _pose_label(graph, g)) for g in goals)
-    journal = _journal_tail(character)
+
+    # --- MEMORY: scored retrieval over the whole journal, not the last five lines.
+    # recency + importance(surprisal of the want) + relevance(transition hops from here),
+    # under a token budget, rendered chronologically with relative ages.
+    entries = _journal_entries(character)
+    picked = journal_score.select(entries, now=ts, distmap=hops, token_budget=JOURNAL_TOKENS)
+    journal = journal_score.render(picked, now=ts)
     jtxt = "\n".join(journal) if journal else "(nothing yet -- this is the start of your day)"
+    aggregate = journal_score.aggregate_line(entries, now=ts)
+    frontier = _frontier_line(graph, node, goals, journal_score.visited_poses(entries), hops or {})
+    neighbours = _neighbour_lines(character, now=ts)
+
+    extra = "\n".join(x for x in ([aggregate, frontier] + neighbours) if x)
+    extra = ("\n" + extra + "\n") if extra else ""
+    bands = ", ".join(sorted(policy.MOOD_BIAS))
     clock = now.strftime("%-I:%M %p") if os.name != "nt" else now.strftime("%I:%M %p").lstrip("0")
     # Real-world weather+time, TTL-cached & fail-soft: "" on ANY failure -> the line is
     # simply omitted and the prompt degrades to its original 2-arg situational form.
@@ -251,41 +326,98 @@ def _build_user_prompt(graph, character, node, dwell, goals, hour):
         situational = "It is %s, %s.\n" % (clock, _daypart(hour))
     return (
         "%s"
-        "You are currently in the pose **%s** (%s). You have lingered here for %d moments.\n\n"
-        "Your recent inner monologue:\n%s\n\n"
+        "You are currently in the pose **%s** (%s). You have lingered here for %d moments.\n"
+        "%s\n"
+        "What you remember, from across your whole life here:\n%s\n\n"
         "The poses you can choose to move to next:\n%s\n"
         "- %s: (stay where you are)\n\n"
         "Choose your next pose -- follow your mood and whims, and don't keep doing the same thing. "
         "Reply with ONLY this JSON:\n"
-        '{"goal": "<one node id from the list>", "mood": "<one or two words>", '
+        '{"goal": "<one node id from the list>", "mood": "<one or two words, in your own words>", '
+        '"band": "<the ONE word from this list closest to your mood: %s>", '
         '"reason": "<one short first-person line, in your own unmistakable voice -- the way only you would say it>"}'
-    ) % (situational, node, _pose_label(graph, node), dwell, jtxt, menu, node)
+    ) % (situational, node, _pose_label(graph, node), dwell, extra, jtxt, menu, node, bands)
+
+
+def _resolve_goal(goal, character, allowed):
+    """Map the model's raw `goal` string onto one of the offered node ids.
+
+    The menu lists FULLY-QUALIFIED ids ("phineas:withered_rose") but the brain
+    routinely answers with the BARE pose label ("withered_rose") -- it names the
+    right pose and drops the prefix. An exact-membership test scores that a miss,
+    so the character stays put and the tick is wasted.
+
+    Measured on hil 2026-07-31 over 20k heartbeat log lines: 1179 rejected
+    decisions, of which 1170 (99.2%) were exactly this and nothing else. Both
+    characters had been parked on their hub pose for hours as a result.
+
+    Order: exact id -> re-prefixed with this character -> case/space-insensitive
+    match on the bare pose label. Returns (node_id, how); (None, "novel") when the
+    name is genuinely not a pose we own -- that is proposal material, not a walk
+    target, and the caller keeps the character where it is.
+    """
+    raw = (goal or "").strip().strip('"').strip("'").strip()
+    if not raw:
+        return None, "empty"
+    if raw in allowed:
+        return raw, "exact"
+    bare = raw.split(":", 1)[-1].strip()
+    qualified = "%s:%s" % (character, bare)
+    if qualified in allowed:
+        return qualified, "prefixed"
+    want = bare.lower()
+    for cand in sorted(allowed):                     # sorted -> deterministic on a tie
+        if cand.split(":", 1)[-1].strip().lower() == want:
+            return cand, "normalized"
+    return None, "novel"
+
+
+def _resolve_band(raw):
+    """Map the model's declared band onto policy's vocabulary, or None.
+
+    The mood stays free text (it is the character's voice, and flattening it to eight
+    words would flatten the personality). The BAND is the same feeling said once in the
+    only vocabulary the body understands. Measured over the real journals, keyword-guessing
+    the band from free text failed for 59% of MAXX's moods and 88% of Phineas's -- they
+    were authored, journaled, and dropped at the boundary. Asking for it costs one field.
+    None here is not a failure: policy._mood_bias falls back to exactly today's guessing."""
+    if not raw:
+        return None
+    text = str(raw).strip().strip('"').strip("'").lower()
+    if text in policy.MOOD_BIAS:
+        return text
+    for tok in text.replace("-", " ").replace(",", " ").split():
+        if tok in policy.MOOD_BIAS:
+            return tok
+    return None
 
 
 def decide_character(graph, spec_bedtime, character, hour, model, dry_run, log):
-    """Sense + think for one character. Returns (goal_node, mood) -- goal None releases the
-    character to circadian/normal walk; mood feeds the walker's policy so the body reflects it.
-    Writes the journal unless dry_run."""
+    """Sense + think for one character. Returns (goal_node, mood, band) -- goal None releases
+    the character to circadian/normal walk; mood feeds the walker's policy so the body reflects
+    it, and band is the mood mapped ONCE onto policy's vocabulary (88% of free-text moods used
+    to reach the body as no signal at all). Writes the journal unless dry_run."""
     node, dwell = _current_pose(graph, character)
     if node is None:
         log("  %s: no poses in graph, skip" % character)
-        return None, None
+        return None, None, None
 
     # NIGHT belongs to circadian -- back off and write no goal.
     if circadian.is_night(spec_bedtime, character, hour):
         log("  %s: night (circadian owns the body) -> no goal" % character)
-        return None, None
+        return None, None, None
 
+    hops = pathfind.hops_from(graph.edges, node)     # one BFS: memory relevance + frontier
     goals = sorted(pathfind.reachable_poses(graph.edges, node)
                    - circadian.bedtime_poses(spec_bedtime, character))
     if not goals:
         log("  %s: nowhere to go from %s -> no goal" % (character, node))
-        return None, None
+        return None, None, None
 
     spec = _load_char_spec(character)
     name, ident = _identity_block(character, spec)
     system = BASE_SYSTEM + "\n\n" + ident
-    user = _build_user_prompt(graph, character, node, dwell, goals, hour)
+    user = _build_user_prompt(graph, character, node, dwell, goals, hour, hops=hops)
 
     with _span("heartbeat.decide", **{"lp.character": character, "lp.hour": hour,
                                       "lp.from_pose": node, "lp.dwell": dwell,
@@ -295,22 +427,34 @@ def decide_character(graph, spec_bedtime, character, hour, model, dry_run, log):
         except llm.LLMError as e:
             sp.set(**{"lp.outcome": "llm_error", "lp.error": str(e)[:200]})
             log("  %s: LLM error (%s) -> keep previous intent" % (character, e))
-            return "__keep__", None   # sentinel: don't overwrite a good prior goal on a transient blip
+            return "__keep__", None, None   # sentinel: don't overwrite a good prior goal on a blip
 
         goal = (out or {}).get("goal", "")
         mood = (out or {}).get("mood", "")
         reason = (out or {}).get("reason", "")
+        band = _resolve_band((out or {}).get("band"))
         allowed = set(goals) | {node}
-        if goal not in allowed:
-            sp.set(**{"lp.rejected_goal": goal})
-            log("  %s: model picked %r (not offered) -> staying at %s" % (character, goal, node))
+        resolved, how = _resolve_goal(goal, character, allowed)
+        if resolved is None:
+            sp.set(**{"lp.rejected_goal": goal, "lp.goal_match": how})
+            log("  %s: model picked %r (no such pose) -> staying at %s" % (character, goal, node))
             goal = node
-        sp.set(**{"lp.goal": goal, "lp.mood": mood, "lp.outcome": "decided"})
-        log("  %s wants %s  [%s] -- %s" % (name, goal, mood, reason))
+        else:
+            if how != "exact":
+                sp.set(**{"lp.goal_raw": goal})
+                log("  %s: repaired %r -> %s (%s)" % (character, goal, resolved, how))
+            goal = resolved
+        sp.set(**{"lp.goal": goal, "lp.mood": mood, "lp.band": band or "",
+                  "lp.goal_match": how, "lp.outcome": "decided"})
+        log("  %s wants %s  [%s%s] -- %s" % (name, goal, mood,
+                                             ("/" + band) if band else "", reason))
         if not dry_run:
-            _append_journal(character, {"ts": int(time.time()), "pose": node, "goal": goal,
-                                        "mood": mood, "reason": reason})
-        return goal, mood
+            entry = {"ts": int(time.time()), "pose": node, "goal": goal,
+                     "mood": mood, "reason": reason}
+            if band:
+                entry["band"] = band
+            _append_journal(character, entry)
+        return goal, mood, band
 
 
 def _slug(s):
@@ -512,7 +656,7 @@ def tick(characters, model, dry_run, log):
 
         all_night = True
         for ch in characters:
-            goal, mood = decide_character(graph, bedtime, ch, hour, model, dry_run, log)
+            goal, mood, band = decide_character(graph, bedtime, ch, hour, model, dry_run, log)
             if goal == "__keep__":
                 all_night = False
                 continue
@@ -522,6 +666,8 @@ def tick(characters, model, dry_run, log):
                 entry = {"goal": goal, "set_at": time.time()}
                 if mood:
                     entry["mood"] = mood             # the walker's policy bends the body to this mood
+                if band:
+                    entry["band"] = band             # ...and the band says it in the body's vocabulary
                 intent["characters"][ch] = entry
                 all_night = False
 

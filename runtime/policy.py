@@ -78,7 +78,16 @@ _BAND = {"high": (1.7, 0.75, 1.4), "low": (0.6, 1.4, 0.95)}
 _CONTEXT_NUDGE = {"high": (1.35, 0.75), "low": (0.75, 1.35)}
 
 
-def _mood_bias(mood):
+def _mood_bias(mood, band=None):
+    """`band` is the heartbeat's OWN mapping of its free-text mood onto MOOD_BIAS, decided
+    once by the brain that authored the mood (heartbeat._resolve_band) instead of guessed
+    here by keyword. When present it wins; when absent this is byte-identical to the
+    keyword path it replaces, so an old intent.json (or a brain that omits the field)
+    behaves exactly as before."""
+    if band:
+        hit = MOOD_BIAS.get(str(band).strip().lower())
+        if hit:
+            return hit
     if not mood:
         return DEFAULT_MOOD
     text = str(mood).strip().lower()
@@ -121,7 +130,7 @@ def _count(seq, item):
     return sum(1 for x in seq if x == item)
 
 
-def weigh(node, out_edges, all_edges, *, goal=None, mood=None, route="wander",
+def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",
           exclude=None, prev_node=None, last_id=None, recent_clips=(), recent_nodes=(),
           reverse_of=None, distmap=None, context_energy=None):
     """Return [(edge, weight)] for every candidate (transparent -> the tests assert on it).
@@ -130,7 +139,7 @@ def weigh(node, out_edges, all_edges, *, goal=None, mood=None, route="wander",
     `context_energy` ("high"|"low"|None) is the live weather/time tilt layered on the mood;
     None leaves the weights byte-identical to the pre-weather behaviour."""
     exclude = exclude or set()
-    tmul, imul, nov_exp = _mood_bias(mood)
+    tmul, imul, nov_exp = _mood_bias(mood, band)
     # weather/time leans the transition/idle balance on TOP of the mood (None -> no change)
     if context_energy:
         ctmul, cimul = _CONTEXT_NUDGE.get(context_energy, (1.0, 1.0))
@@ -197,7 +206,7 @@ def _reverse_of_last(last_label):
     return lambda e: e.get("label") == target
 
 
-def choose(node, out_edges, all_edges, *, goal=None, mood=None, route="wander",
+def choose(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",
            exclude=None, prev_node=None, last_id=None, last_label=None,
            recent_clips=(), recent_nodes=(), rng, distmap=None, context_energy=None):
     """Weighted-sample one edge from `out_edges`. Returns the chosen edge, or None only
@@ -205,7 +214,7 @@ def choose(node, out_edges, all_edges, *, goal=None, mood=None, route="wander",
     weather/time tilt layered on the mood; None = exactly the pre-weather behaviour."""
     if not out_edges:
         return None
-    weights = weigh(node, out_edges, all_edges, goal=goal, mood=mood, route=route,
+    weights = weigh(node, out_edges, all_edges, goal=goal, mood=mood, band=band, route=route,
                     exclude=exclude, prev_node=prev_node, last_id=last_id,
                     recent_clips=recent_clips, recent_nodes=recent_nodes,
                     reverse_of=_reverse_of_last(last_label), distmap=distmap,

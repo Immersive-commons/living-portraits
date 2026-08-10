@@ -86,6 +86,22 @@ _zai_down_until = 0.0      # circuit-breaker timestamp
 _zai_was_down = False      # transition flag, for one-line recover/fallback logging
 
 
+class _Reply(str):
+    """The reply text, carrying WHY the model stopped talking.
+
+    A plain `str` subclass on purpose: every existing caller keeps treating it as text,
+    and only the code that needs to tell "malformed" from "unfinished" looks at
+    `.stop_reason`. `"max_tokens"` means the sentence was cut mid-word -- a budget
+    problem, not a parser problem, and for months it was reported as the latter."""
+
+    stop_reason = None
+
+    def __new__(cls, text, stop_reason=None):
+        obj = super().__new__(cls, text)
+        obj.stop_reason = stop_reason
+        return obj
+
+
 class LLMError(RuntimeError):
     """Any failure talking to the gateway (no key / network / non-200 / bad body)."""
 
@@ -159,7 +175,12 @@ def _zai_complete(system, user, model=DEFAULT_MODEL, max_tokens=600, temperature
                     output_tokens=usage.get("output_tokens"), text=text)
         if not text:
             raise LLMError("gateway returned no text content: %s" % (json.dumps(data)[:300],))
-        return text
+        # A reply cut off at the token ceiling is not malformed JSON, it is an unfinished
+        # sentence -- but downstream it surfaced as "no JSON object in model reply", which
+        # sends you looking at the parser instead of at max_tokens. Carry the reason so the
+        # caller can say which one it was. (Attribute on str: no signature change, and any
+        # caller that just wants the text is unaffected.)
+        return _Reply(text, data.get("stop_reason"))
 
 
 def _ollama_complete(system, user, max_tokens=600, temperature=1.0, timeout=60, json_mode=False):
@@ -243,7 +264,18 @@ def complete_json(system, user, **kw):
     text = complete(system, user, **kw)
     obj = _extract_json(text)
     if obj is None:
-        raise LLMError("no JSON object in model reply: %s" % (text[:300],))
+        # Say WHICH failure this is. The old message ("no JSON object in model reply")
+        # was one sentence for three different causes, and it named the least likely one:
+        # over 62 real failures on hil the reply was usually well-formed-looking, and the
+        # log's own 300-char truncation destroyed the evidence needed to tell them apart.
+        # repr() so a stray control character or mojibake is VISIBLE rather than invisible.
+        why = "unparseable"
+        if getattr(text, "stop_reason", None) == "max_tokens":
+            why = "reply CUT OFF at max_tokens=%s (raise it; the JSON never closed)" % (
+                kw.get("max_tokens", "default"),)
+        elif not str(text).rstrip().endswith(("}", "```")):
+            why = "reply ends mid-object (truncated upstream, not malformed)"
+        raise LLMError("%s | %d chars | %s" % (why, len(text), repr(str(text)[:600])))
     return obj
 
 
@@ -264,12 +296,41 @@ def _extract_json(text):
                 return json.loads(inner.strip())
             except Exception:
                 pass
-    # outermost balanced {...}
-    start = text.find("{")
-    end = text.rfind("}")
-    if 0 <= start < end:
-        try:
-            return json.loads(text[start:end + 1])
-        except Exception:
-            return None
+    # Each balanced {...} in turn, FIRST one wins. The old code spanned find("{") to
+    # rfind("}"), which is a single object only when the model emits exactly one: glm-5.1
+    # has been observed repeating its answer four times in a row, and the outermost span
+    # then covers all four and parses as nothing. `strict=False` additionally tolerates a
+    # raw control character inside a string, which a model writing dialogue does produce.
+    for candidate in _balanced_objects(text):
+        for strict in (True, False):
+            try:
+                return json.loads(candidate, strict=strict)
+            except Exception:
+                continue
     return None
+
+
+def _balanced_objects(text):
+    """Yield each top-level {...} substring, left to right, quote- and escape-aware
+    (so a brace inside a string literal never opens or closes an object)."""
+    depth, start, in_str, esc = 0, None, False, False
+    for i, ch in enumerate(text):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                yield text[start:i + 1]
+                start = None

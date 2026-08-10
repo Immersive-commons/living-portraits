@@ -1,5 +1,5 @@
 # sc2_bringup.ps1 -- one-shot FULL-LOCAL bring-up for living-portraits on
-# supercommons2 (immer@<producer-host>). Installs the producer-side deps that are
+# supercommons2 (immer@100.123.185.12). Installs the producer-side deps that are
 # NOT part of the runtime show (the .venv-gen heavy stack), seeds the two Piper
 # voices, then runs the producer backfill so every rendered portrait lands in the
 # clip library.

@@ -12,7 +12,7 @@ a slow stage-manager (qwen3) composes the beats.
 - `data/`           runtime state: stage_state.json, mood.json, feed.json (gitignored)
 
 ## Runs on
-supercommons2 (`immer@<producer-host>`): i9-9900K / 64GB / RTX 2080 Ti 11GB.
+supercommons2 (`immer@100.123.185.12`): i9-9900K / 64GB / RTX 2080 Ti 11GB.
 Shares the box with the inference-engineering catalog. qwen3:8b via local Ollama.
 
 ## Status

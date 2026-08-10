@@ -1,18 +1,14 @@
-# runtime / generated state (never committed)
-data/
-_shots/
-_article/
-*.log
-
-# python
-__pycache__/
-*.pyc
-*.pyo
 .venv/
-venv/
+data/
+*.log
+*.png
+*.mp4
+*.gif
+_shots/
+__pycache__/
+pipeline/vendor/
+*.done
 
-# secrets / local config
-.env
-.env.*
-*.local
-zai_key.txt
+# article assets are deliberate deliverables — keep them tracked despite *.png above
+!_article/assets/
+!_article/assets/*.png

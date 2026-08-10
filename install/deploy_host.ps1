@@ -59,7 +59,7 @@
 
 [CmdletBinding()]
 param(
-    # user@host of the deploy target, e.g. immer@hil08rd or immer@<producer-host>.
+    # user@host of the deploy target, e.g. immer@hil08rd or immer@100.123.185.12.
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$Target,
