@@ -30,11 +30,28 @@ sys.stdout = sys.stderr = open(ROOT / "_preview.log", "a", buffering=1,
 import pygame
 from PIL import Image, ImageSequence
 
-from runtime import circadian, mind, policy   # circadian=clock; mind=LLM goal; policy=unified weighted walk (all stdlib, import-safe)
+from runtime import circadian, lived, mind, policy   # circadian=clock; mind=LLM goal; policy=unified weighted walk; lived=experience write-back (all stdlib, import-safe)
 try:
     from director import context as _context   # live weather/time -> movement-energy nudge (fail-soft; optional)
 except Exception:
     _context = None                            # a missing/broken context module must NEVER stop the walker
+
+try:                                            # styling is a PREFERENCE layer: a missing module
+    from runtime import edge_style               # must degrade to the pre-style walk, never to a
+except Exception:                                # dark panel.
+    edge_style = None
+
+
+def _style_index(all_edges):
+    """manner/valence per clip, or {} — which policy treats as "no styling" and weighs
+    exactly as it did before this existed."""
+    if edge_style is None:
+        return {}
+    try:
+        return edge_style.index(all_edges)
+    except Exception:
+        return {}
+
 
 PANELS = {"A": (0, 0, 256, 256), "B": (256, 0, 192, 192)}
 WINDOW_W, WINDOW_H = 448, 256
@@ -78,6 +95,11 @@ class GraphCycler:
         self._intent_mtime = -1.0
         self._pub_node = None             # last (node, dwell) published -> re-publish when either changes
         self._pub_dwell = -1              # so the heartbeat sees dwell ADVANCE while a character lingers
+        self._band = None                 # the heartbeat's declared mood band, stamped onto each visit
+        # LIVED experience: this walker is the SOLE writer of its character's record (same
+        # single-writer discipline as pose/<char>.json). It cannot live in the graph file --
+        # video_graph.build() regenerates that from specs every ~20 min and would erase it.
+        self.lived = lived.Lived(character)
         try:
             self._graph_mtime = GRAPH.stat().st_mtime   # for autogen hot-reload
         except OSError:
@@ -100,6 +122,16 @@ class GraphCycler:
             froms = [e.get("from") for e in self.all if self._from(e.get("from"))]
             if froms:
                 self.node = froms[0]
+        # The pose we START in is one the character is genuinely standing in -- only ARRIVALS
+        # are recorded below, so without this a walker that boots at its hub and dwells there
+        # for an hour reports visits=0 with dwell climbing, and the brain sees no habit at all.
+        self.lived.visit(self.node)
+        # EDGE STYLE: read each clip's own motion_prompt into a manner + valence ONCE per
+        # graph load (1472 edges; never per pick). The mood already picks how MANY
+        # transitions a character takes -- this picks WHICH one, so a weary Phineas takes
+        # the clip that sags rather than the one that lunges. Both are `kind: transition`
+        # and indistinguishable to every other term in the policy.
+        self.styles = _style_index(self.all)
         self.cache = {}
         self.cur = None
         self.fi = 0
@@ -178,6 +210,7 @@ class GraphCycler:
         if not new_all:
             return
         self.all = new_all
+        self.styles = _style_index(self.all)           # re-derive: autogen's new clips need typing too
         if not self._from(self.node):                 # current node gone -> re-home
             froms = [e.get("from") for e in self.all if self._from(e.get("from"))]
             if froms:
@@ -252,11 +285,16 @@ class GraphCycler:
         intent = self._read_intent()
         cobj = (intent.get("characters", {}) or {}).get(self.character) or {}
         goal = mind.goal_for(intent, self.character) if (self.mind_on or self.policy_on) else None
+        self._band = cobj.get("band")    # stamped onto lived visits: which mood it brought HERE
         mask = circadian.bedtime_labels(self.spec, self.character)   # keep the daytime walk out of the bedroom
         self._last_ctx_energy = self._context_energy()   # cache for the pick log + feed the policy
         self.cur = policy.choose(
             self.node, out, self.all, goal=goal, mood=cobj.get("mood"), band=cobj.get("band"),
-            route=cobj.get("route", "wander"), exclude=mask, prev_node=self.prev_node,
+            # ESCAPE VELOCITY: how long we have honestly been here. Zero at the sleep pose --
+            # dwelling there for hours IS the behaviour, and pulling on its exits would wake
+            # the character in the middle of the night.
+            dwell=0 if (self.sleep_node and self.node == self.sleep_node) else self.pose_dwell,
+            styles=self.styles, route=cobj.get("route", "wander"), exclude=mask, prev_node=self.prev_node,
             last_id=self.last_id, last_label=self.last_label,
             recent_clips=self.recent_clips, recent_nodes=self.recent_nodes, rng=random,
             context_energy=self._last_ctx_energy)
@@ -280,6 +318,8 @@ class GraphCycler:
             self.last_id = self.cur.get("id")
             self.last_label = self.cur.get("label")
             self.recent_clips.append(self.last_id)   # novelty memory: this clip was just played
+            self.lived.play(self.last_id)            # ...and this clip has now ACTUALLY rolled once more
+            self.lived.flush()                       # rate-limited internally (>= FLUSH_EVERY); fail-soft
             ce = (" ctx=%s" % self._last_ctx_energy) if self._last_ctx_energy else ""
             print("[%s] %-12s @ %s (h%d d%d)%s" % (self.character, self.cur.get("label"),
                   self.node, self._hour(), self.pose_dwell, ce), flush=True)
@@ -315,6 +355,11 @@ class GraphCycler:
                 self.node = self.cur.get("to", self.node)
                 self.recent_nodes.append(self.node)  # novelty memory: this pose was just visited
                 self.pose_dwell = 0                 # fresh pose -> reset dwell counter
+                # LIVED: the character just stood somewhere. Until now nothing it experienced
+                # was ever recorded against the graph -- the graph knew every pose that had been
+                # GENERATED and none that had been LIVED. Cheap in-memory counter; the store
+                # flushes to disk at most once a minute.
+                self.lived.visit(self.node, mood_band=self._band)
                 self._pick()
             return s
         # IDLE: loop the clip; advance to the next animation after the effective DURATION.
@@ -328,6 +373,7 @@ class GraphCycler:
         done = (self.shown >= cap) if cap else (self.lc >= self.loops)
         if done:
             self.pose_dwell += 1                    # one dwell unit at this pose
+            self.lived.tick_dwell(self.node)        # ...and time spent here is part of the record
             self._pick()
         return s
 

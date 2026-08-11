@@ -20,6 +20,16 @@ softmax over the candidate edges, where every concern is a WEIGHT evaluated toge
                       transitions + novelty; weary -> more idles + longer dwell; fixated ->
                       fewer transitions (lingers). Personality becomes visible, not just
                       journaled.
+  * style          -- OPT-IN (`styles=`). The mood picks HOW MANY transitions; this picks
+                      WHICH ONE. `runtime/edge_style.py` reads each clip's own
+                      `motion_prompt` into a manner (storm / saunter / collapse / rise /
+                      ...) and a valence, and a weary character then prefers the clip that
+                      sags over the clip that lunges -- both of which are `kind:
+                      transition` and indistinguishable to every other term here.
+                      Preference only: bounded well above zero (edge_style.STYLE_FLOOR),
+                      applied AFTER anti-reverse / novelty / goal so it can lean those
+                      terms but never overturn them, and absent (or unstyled) it leaves
+                      every weight byte-identical to the pre-style behaviour.
 
 Pure + import-safe (stdlib only). Imported by the 10fps render loop, so it must stay
 fast and side-effect free. Never strands: if every candidate masks out, it falls back to
@@ -29,12 +39,24 @@ a uniform pick over the raw out-edges, so a panel can never freeze.
     edge = policy.choose(node, out_edges, all_edges, goal="maxx:cat_whisper",
                          mood="restless", route="wander", exclude=bedtime_labels,
                          prev_node=prev, last_id=last, recent_clips=rc, recent_nodes=rn,
-                         rng=random)
+                         styles=edge_style.index(all_edges), rng=random)
 """
 from __future__ import annotations
 
 import math
 from collections import deque
+
+# Sibling lookup mirrors how the render loop is wired: player.py puts runtime/ on
+# sys.path (bare import), everything else imports the package. Styling is a preference
+# layer, so a missing module degrades to exactly the pre-style behaviour instead of
+# taking the panels down.
+try:                                     # pragma: no cover - wiring, not behaviour
+    import edge_style as _edge_style
+except ImportError:                      # pragma: no cover
+    try:
+        from runtime import edge_style as _edge_style
+    except ImportError:
+        _edge_style = None
 
 # --- tunables (kept as module constants so the tests pin the behaviour, not magic numbers).
 REVERSE_PENALTY = 0.04     # multiply a transition that backtracks to prev_node / reverses last clip
@@ -43,6 +65,40 @@ GOAL_ARRIVE_BOOST = 8.0    # a transition that lands ON the goal pose
 AWAY_PENALTY = 0.15        # a transition that increases BFS distance to the goal
 GOAL_HOLD_BOOST = 6.0      # idles AT the goal pose (pin there until a new goal)
 ROUTE_PULL = {"beeline": 7.0, "wander": 2.0}   # toward-goal multiplier by route style
+
+# --- ESCAPE VELOCITY: the longer a character has been somewhere, the more its exits are
+# worth. Without this, a pose with ONE exit and three idles is a trap under a low-energy
+# band: measured 2026-08-10, `fixated` weights idles 1.5x and transitions 0.4x, so a single
+# exit held 13% against three idles' 87%, and Phineas looped the same three clips for an
+# hour at commanding_aether. 56 of his 120 poses have one exit or none.
+#
+# This is deliberately NOT a fix to the graph. Generating return clips for all 112 one-exit
+# poses across both characters is ~840 Higgsfield credits, 28% of a month, to reclaim time
+# measured at 18% of dwell spread across a long tail whose worst single member is 1.1%. A
+# weight costs nothing and covers poses that do not exist yet.
+#
+# Ramps only AFTER a genuine dwell so ordinary lingering is untouched, and the caller passes
+# dwell=0 at the sleep pose and at night -- a character is SUPPOSED to stay put for hours
+# there, and boosting its exits would wake it up at 2am.
+ESCAPE_AFTER = 8           # idle units of honest dwell before the pull starts
+ESCAPE_PER_UNIT = 0.35     # added transition multiplier per unit beyond that
+ESCAPE_MAX = 6.0           # ceiling: a strong nudge, never a forced march
+REVERSE_FORGIVE = 20       # idle units over which the anti-reverse penalty relaxes to none.
+                           # Anti-reverse is a SHORT-timescale guard -- it exists to stop
+                           # "play a move, then play it backwards", which is only ugly when
+                           # it happens immediately. Held forever it turns a pendant pose
+                           # (one neighbour, in and out) into a cell, because the only exit
+                           # IS the backtrack. Both guards were right; together they trapped.
+
+
+def _reverse_penalty(dwell=0):
+    """REVERSE_PENALTY at a fresh arrival, relaxing to 1.0 (no penalty) by
+    ESCAPE_AFTER + REVERSE_FORGIVE idle units. The pendulum stays fixed; the cell opens."""
+    over = (dwell or 0) - ESCAPE_AFTER
+    if over <= 0:
+        return REVERSE_PENALTY
+    t = min(1.0, over / float(REVERSE_FORGIVE))
+    return REVERSE_PENALTY + (1.0 - REVERSE_PENALTY) * t
 
 # mood -> (transition multiplier, idle multiplier, novelty exponent).
 # novelty exponent >1 sharpens the novelty preference (more exploratory).
@@ -105,6 +161,31 @@ def _mood_bias(mood, band=None):
     return DEFAULT_MOOD
 
 
+def _style_band(mood, band):
+    """The band name `edge_style` should key its manner preference on, or None.
+
+    Deliberately the SAME precedence `_mood_bias` uses -- declared band first, then an
+    exact band token in the free text, then the energy bucket -- so the body's choice of
+    WHICH clip and its choice of HOW MANY clips are never reasoning from two different
+    readings of one mood. None means "no opinion", which is a multiplier of exactly 1.0
+    and not a neutral bucket."""
+    if band:
+        b = str(band).strip().lower()
+        if b in MOOD_BIAS or b in _BAND:
+            return b
+    text = str(mood or "").strip().lower()
+    if not text:
+        return None
+    for tok in text.replace("-", " ").split():
+        if tok in MOOD_BIAS:
+            return tok
+    if any(w in text for w in _HIGH_ENERGY):
+        return "high"
+    if any(w in text for w in _LOW_ENERGY):
+        return "low"
+    return None
+
+
 def dist_to_goal(all_edges, goal):
     """BFS distance (in transition hops) from every node TO `goal`, over the transition
     sub-graph reversed. {node: hops}. Cheap; computed once per pick when there's a goal."""
@@ -132,14 +213,28 @@ def _count(seq, item):
 
 def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",
           exclude=None, prev_node=None, last_id=None, recent_clips=(), recent_nodes=(),
-          reverse_of=None, distmap=None, context_energy=None):
+          reverse_of=None, distmap=None, context_energy=None, styles=None,
+          style_strength=1.0, dwell=0):
     """Return [(edge, weight)] for every candidate (transparent -> the tests assert on it).
     `reverse_of(edge) -> bool` optionally marks an edge as the reverse of the last clip
     (label heuristic by default). Excluded edges get weight 0 unless they're the only exits.
     `context_energy` ("high"|"low"|None) is the live weather/time tilt layered on the mood;
-    None leaves the weights byte-identical to the pre-weather behaviour."""
+    None leaves the weights byte-identical to the pre-weather behaviour.
+    `styles` is `edge_style.index(all_edges)` -- {edge_id: Style} built ONCE at graph load,
+    never per tick. Omitted (or an edge missing from it, or a mood naming no band) leaves
+    the weights byte-identical to the pre-style behaviour; present, it is a bounded
+    multiplier that can lean the pick toward manner-consistent movement but never zero an
+    edge. `style_strength` 0..1 fades the whole layer out (0 == off)."""
     exclude = exclude or set()
     tmul, imul, nov_exp = _mood_bias(mood, band)
+    # escape velocity: exits get worth more the longer we have honestly been here.
+    if dwell and dwell > ESCAPE_AFTER:
+        tmul *= min(ESCAPE_MAX, 1.0 + ESCAPE_PER_UNIT * (dwell - ESCAPE_AFTER))
+    # manner preference is OFF unless the caller supplies an INDEX (a mapping, per
+    # edge_style.index) AND the mood names a band. Anything else is silently no-styling
+    # rather than a traceback out of the render loop.
+    sband = (_style_band(mood, band)
+             if (styles and _edge_style is not None and hasattr(styles, "get")) else None)
     # weather/time leans the transition/idle balance on TOP of the mood (None -> no change)
     if context_energy:
         ctmul, cimul = _CONTEXT_NUDGE.get(context_energy, (1.0, 1.0))
@@ -168,9 +263,15 @@ def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route=
             w *= tmul
             # pose-level novelty: avoid bouncing onto a recently-seen pose
             w *= (1.0 / (1.0 + _count(recent_nodes, to))) ** nov_exp
-            # anti-reverse: straight back where we came from, or the reverse of the last clip
+            # anti-reverse: straight back where we came from, or the reverse of the last clip.
+            # FORGIVEN WITH DWELL. Going back immediately is a pendulum; going back after an
+            # hour of standing still is the only door. On a PENDANT pose -- one in-edge, one
+            # out-edge, the same neighbour both ways -- the two guards fight and the trap
+            # wins: measured live 2026-08-10, Phineas at commanding_aether (in from sleep,
+            # out to sleep) had escape velocity lift his exit to 45%, and anti-reverse cut it
+            # straight back to 3.2%, which is 31 expected clips of the same three idles.
             if (prev_node is not None and to == prev_node) or (reverse_of and reverse_of(e)):
-                w *= REVERSE_PENALTY
+                w *= _reverse_penalty(dwell)
             # goal gradient (shares the exclude mask -> never routes through a masked pose)
             if goal and distmap:
                 if to == goal:
@@ -187,6 +288,11 @@ def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route=
             w *= imul
             if goal and node == goal:
                 w *= GOAL_HOLD_BOOST                 # pin at the goal
+        # manner preference LAST: it leans a choice the load-bearing terms above have
+        # already shaped, and edge_style.affinity is floored above zero, so no styled
+        # edge is ever eliminated and the anti-reverse / novelty / goal fixes still win.
+        if sband is not None:
+            w *= _edge_style.affinity(styles.get(eid), sband, style_strength)
         weights.append((e, w))
 
     # never strand: if everything masked/zeroed, fall back to a flat pick over raw exits
@@ -208,17 +314,21 @@ def _reverse_of_last(last_label):
 
 def choose(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",
            exclude=None, prev_node=None, last_id=None, last_label=None,
-           recent_clips=(), recent_nodes=(), rng, distmap=None, context_energy=None):
+           recent_clips=(), recent_nodes=(), rng, distmap=None, context_energy=None,
+           styles=None, style_strength=1.0, dwell=0):
     """Weighted-sample one edge from `out_edges`. Returns the chosen edge, or None only
     if there are no candidates at all. `context_energy` ("high"|"low"|None) is the live
-    weather/time tilt layered on the mood; None = exactly the pre-weather behaviour."""
+    weather/time tilt layered on the mood; None = exactly the pre-weather behaviour.
+    `styles` (edge_style.index) turns on the manner preference; None = exactly the
+    pre-style behaviour."""
     if not out_edges:
         return None
     weights = weigh(node, out_edges, all_edges, goal=goal, mood=mood, band=band, route=route,
                     exclude=exclude, prev_node=prev_node, last_id=last_id,
                     recent_clips=recent_clips, recent_nodes=recent_nodes,
                     reverse_of=_reverse_of_last(last_label), distmap=distmap,
-                    context_energy=context_energy)
+                    context_energy=context_energy, styles=styles,
+                    style_strength=style_strength, dwell=dwell)
     total = math.fsum(w for _, w in weights)
     if total <= 0:
         return rng.choice(out_edges)

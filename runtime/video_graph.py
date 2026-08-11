@@ -22,6 +22,17 @@ clips (the reversed sit-down, which has no MJ job) are first-class. Stored at
 data/clips/video_graph.json. Import-safe (stdlib only).
     python runtime/video_graph.py build
     python runtime/video_graph.py show
+    python runtime/video_graph.py provenance
+
+PROVENANCE (added 0.3.2). Every node and edge carries `created` -- the moment the SYSTEM
+learned it exists, derived from its artifact's mtime, so it survives `build()` overwriting
+this file every ~20 minutes. And an edge whose clip disappears is no longer SKIPPED into
+oblivion: `build()` diffs against the last committed graph and tombstones what vanished, so
+the graph can still answer "what could this character do last month". The tombstones live in
+data/graph/provenance.json, NOT in video_graph.json -- that file stays a pure LIVE view
+because `_preview_graph.py` reads it raw, and a dead edge in it is a dead clip handed to the
+walker. `VideoGraph.load()` therefore defaults to the live view; `load(history=True)` is the
+explicit opt-in that reassembles the dead. See runtime/graph_provenance.py.
 """
 from __future__ import annotations
 
@@ -38,27 +49,100 @@ PROTO = ROOT / "data" / "clips" / "_proto"
 _VAR_RE = re.compile(r"_v(\d+)\.gif$")
 
 
+def _load_provenance_module():
+    """This module is imported BOTH as `from runtime import video_graph` (repo root on the
+    path) and run as `python runtime/video_graph.py build` (runtime/ on the path -- see
+    pipeline/autogen.py:482), so the sibling import has to work either way. If neither
+    works the graph still loads, simply without a time dimension: provenance is never
+    allowed to be the reason a panel goes dark."""
+    try:
+        from runtime import graph_provenance as m
+        return m
+    except Exception:
+        pass
+    try:
+        import graph_provenance as m
+        return m
+    except Exception:
+        return None
+
+
+_prov = _load_provenance_module()
+
+
+_DERIVED_KEYS = ("created", "invalidated")
+
+
+def _committed(d):
+    """What actually goes on disk: the record minus its DERIVED provenance fields.
+
+    `created` is recomputed from artifact mtime on every load and `invalidated` belongs to
+    the tombstone store, so writing either into video_graph.json would persist a value that
+    the next rebuild is free to contradict -- and would put a dead edge in front of the raw-
+    JSON reader in _preview_graph.py. Stripping here means a load->save round trip cannot
+    leak provenance into the file no matter which view it went through."""
+    if not isinstance(d, dict) or not any(k in d for k in _DERIVED_KEYS):
+        return d
+    return {k: v for k, v in d.items() if k not in _DERIVED_KEYS}
+
+
 class VideoGraph:
     def __init__(self, nodes=None, edges=None):
         self.nodes: dict = nodes or {}
         self.edges: list = edges or []
+        self.provenance: dict = {}    # {nodes, nodes_created, edges, edges_created} from the last stamp
+        self.history: bool = False    # True only if this view was loaded WITH the dead
 
     @classmethod
-    def load(cls, path=GRAPH_PATH):
-        p = Path(path)
-        if not p.exists():
-            return cls()
-        d = json.loads(p.read_text(encoding="utf-8"))
-        return cls(d.get("nodes", {}), d.get("edges", []))
+    def load(cls, path=None, *, history=False, provenance=True, store_path=None):
+        """The LIVE graph by default -- invalidated edges are not in it and cannot be walked.
 
-    def save(self, path=GRAPH_PATH):
-        p = Path(path)
+        `history=True` is the explicit opt-in that merges the tombstones back in; every
+        entry that came from history carries `invalidated`, so even a history view can be
+        filtered back down (`g.live_edges()`). `provenance=False` skips the mtime scan for
+        a caller that wants raw speed (measured 1.7 ms over the 259/1472 production graph).
+
+        The signature is additive and keyword-only past `path`, so every existing caller --
+        `VideoGraph.load()` in heartbeat.py and autogen.py -- behaves exactly as before."""
+        p = Path(GRAPH_PATH if path is None else path)
+        if not p.exists():
+            g = cls()
+        else:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            g = cls(d.get("nodes", {}), d.get("edges", []))
+        if history and _prov is not None:
+            try:
+                store = _prov.load_store(store_path)
+                g.nodes, g.edges = _prov.merge_history(g.nodes, g.edges, store)
+                g.history = True
+            except Exception:
+                pass       # history is a nice-to-have; the live graph is not
+        if provenance and _prov is not None:
+            try:
+                g.provenance = _prov.stamp(g.nodes, g.edges, root=ROOT)
+            except Exception:
+                pass
+        return g
+
+    def save(self, path=None):
+        p = Path(GRAPH_PATH if path is None else path)
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(p.suffix + ".tmp")
         tmp.write_text(json.dumps(
-            {"schema": "living-portrait.video-graph/v3", "nodes": self.nodes, "edges": self.edges},
+            {"schema": "living-portrait.video-graph/v3",
+             "nodes": {k: _committed(v) for k, v in self.nodes.items()},
+             "edges": [_committed(e) for e in self.edges]},
             indent=2), encoding="utf-8")
         tmp.replace(p)   # atomic: a hot-reloading player never reads a half-written graph
+
+    def live_edges(self):
+        """Edges that are actually playable. Identical to `self.edges` in the default view;
+        the point is that it stays correct in a history view too, so no caller can reach a
+        dead clip by holding the wrong object."""
+        return [e for e in self.edges if not e.get("invalidated")]
+
+    def dead_edges(self):
+        return [e for e in self.edges if e.get("invalidated")]
 
     def add_node(self, node_id, **attrs):
         self.nodes[node_id] = attrs
@@ -67,7 +151,12 @@ class VideoGraph:
         self.edges.append(edge)
 
     def edges_from(self, node_id):
-        return [e for e in self.edges if e.get("from") == node_id]
+        """Outgoing PLAYABLE edges. The `invalidated` filter is the single choke point every
+        walk helper below funnels through (idle/transition/random/next_edge, reachability,
+        validate), so a history view cannot hand anyone a clip that is no longer on disk.
+        In the default live view nothing is invalidated and this is the original one-liner."""
+        return [e for e in self.edges
+                if e.get("from") == node_id and not e.get("invalidated")]
 
     def idle_edges(self, node_id):
         return [e for e in self.edges_from(node_id) if e.get("kind") == "idle"]
@@ -126,9 +215,10 @@ class VideoGraph:
         """
         issues, node_ids = [], set(self.nodes)
         char_nodes = {}
+        live = self.live_edges()      # the dead are history, not walk-safety problems
         for nid, n in self.nodes.items():
             char_nodes.setdefault(n.get("character"), []).append(nid)
-        for e in self.edges:
+        for e in live:
             for end in ("from", "to"):
                 if e.get(end) not in node_ids:
                     issues.append(("ERROR", "edge %s .%s points at unknown node %r" % (e.get("id"), end, e.get(end))))
@@ -150,7 +240,7 @@ class VideoGraph:
                     issues.append(("WARN", "node %s is unreachable from hub %s -> never visited" % (i, hub)))
                 elif hub not in self._reachable_from(i):
                     issues.append(("WARN", "node %s cannot reach back to hub %s -> one-way trap" % (i, hub)))
-        for e in self.edges:
+        for e in live:
             gif = e.get("gif")
             if gif and not (ROOT / gif).exists():
                 issues.append(("WARN", "edge %s gif missing: %s" % (e.get("id"), gif)))
@@ -424,7 +514,52 @@ for _ch, _poses in _AG_NODES.items():
 EDGE_SPECS.extend(_AG_EDGES)
 
 
+def _previous_committed():
+    """The last graph this build actually committed -- the only honest baseline for "what
+    disappeared". Read raw, fail-soft: no previous file (first ever build) means nothing has
+    disappeared, which is exactly ({}, [])."""
+    try:
+        d = json.loads(Path(GRAPH_PATH).read_text(encoding="utf-8"))
+        return (d.get("nodes") or {}), (d.get("edges") or [])
+    except Exception:
+        return {}, []
+
+
+def _record_provenance(prev_nodes, prev_edges, g):
+    """Tombstone whatever the new graph lost, stamp what it has, print one honest line.
+
+    Called ONLY AFTER a successful save, so a build that refuses to commit (walk-safety
+    errors) never records deaths for a graph nobody is running. Returns the stats dict for
+    the caller/tests; every failure degrades to no provenance rather than no graph."""
+    if _prov is None:
+        return {}
+    try:
+        store = _prov.load_store()
+        store, stats = _prov.reconcile(prev_nodes, prev_edges, g.nodes, g.edges, store=store)
+        wrote = _prov.save_store(store) if (stats["edges_invalidated"] or stats["nodes_invalidated"]
+                                            or stats["edges_revived"] or stats["nodes_revived"]
+                                            or store["edges"] or store["nodes"]) else True
+        g.provenance = _prov.stamp(g.nodes, g.edges, root=ROOT)
+        print("  provenance: %d/%d nodes + %d/%d edges dated from their artifact" % (
+            g.provenance.get("nodes_created", 0), g.provenance.get("nodes", 0),
+            g.provenance.get("edges_created", 0), g.provenance.get("edges", 0)))
+        if stats["edges_invalidated"] or stats["nodes_invalidated"]:
+            print("  provenance: INVALIDATED %d edge(s) + %d node(s) this build "
+                  "(kept as history, not deleted)" % (
+                      stats["edges_invalidated"], stats["nodes_invalidated"]))
+        if stats["edges_revived"] or stats["nodes_revived"]:
+            print("  provenance: revived %d edge(s) + %d node(s)" % (
+                stats["edges_revived"], stats["nodes_revived"]))
+        if stats["edges_dead"] or stats["nodes_dead"]:
+            print("  provenance: %d edge(s) + %d node(s) now live only in history%s" % (
+                stats["edges_dead"], stats["nodes_dead"], "" if wrote else " (STORE WRITE FAILED)"))
+        return stats
+    except Exception:
+        return {}
+
+
 def build():
+    prev_nodes, prev_edges = _previous_committed()
     g = VideoGraph()
     for char, poses in NODE_SPECS.items():
         for pose, spec in poses.items():
@@ -470,6 +605,7 @@ def build():
                          "(idle loops + at least one transition back toward the hub). Fix + rebuild." % len(errs))
     g.save()
     print("  walk-safe -> saved %s" % GRAPH_PATH)
+    _record_provenance(prev_nodes, prev_edges, g)
     return g
 
 
@@ -484,6 +620,26 @@ if __name__ == "__main__":
         for e in g.edges:
             print("EDGE %-22s %-10s %s -> %s | %s" % (
                 e["id"], e.get("kind"), e.get("from"), e.get("to"), (e.get("motion_prompt") or "")[:50]))
+    elif cmd == "provenance":
+        import datetime as _dt
+        g = VideoGraph.load(history=True)
+        p = g.provenance
+        print("created (transaction time, from artifact mtime): %d/%d nodes, %d/%d edges" % (
+            p.get("nodes_created", 0), p.get("nodes", 0),
+            p.get("edges_created", 0), p.get("edges", 0)))
+        dead_n = [(nid, n) for nid, n in g.nodes.items() if n.get("invalidated")]
+        dead_e = g.dead_edges()
+        print("invalidated (still in history, never playable): %d nodes, %d edges" % (
+            len(dead_n), len(dead_e)))
+        for nid, n in sorted(dead_n)[:20]:
+            print("  DEAD NODE %-24s since %s" % (
+                nid, _dt.datetime.fromtimestamp(n["invalidated"]).strftime("%Y-%m-%d %H:%M")))
+        for e in sorted(dead_e, key=lambda x: x.get("id") or "")[:20]:
+            print("  DEAD EDGE %-24s %s -> %s since %s" % (
+                e.get("id"), e.get("from"), e.get("to"),
+                _dt.datetime.fromtimestamp(e["invalidated"]).strftime("%Y-%m-%d %H:%M")))
+        if len(dead_e) > 20:
+            print("  ... and %d more" % (len(dead_e) - 20))
     elif cmd == "validate":
         g = VideoGraph.load()
         issues = g.validate()
@@ -493,4 +649,4 @@ if __name__ == "__main__":
         print("walk-safety: %d error(s), %d warning(s)" % (n_err, len(issues) - n_err))
         sys.exit(1 if n_err else 0)
     else:
-        print("usage: video_graph.py build | show | validate")
+        print("usage: video_graph.py build | show | validate | provenance")

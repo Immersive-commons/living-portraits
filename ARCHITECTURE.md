@@ -4,6 +4,12 @@ Written 2026-08-09 against the repo and the live production host `hil`. Read-onl
 no code changed. Every claim is cited `file.py:line`. Anything I inferred rather than
 confirmed is marked **(inferred)**. Closing section lists what I did not verify.
 
+**Updated 2026-08-11 for v0.4.0** — new modules (`lived`, `journal_score`,
+`graph_provenance`, `edge_style`, `reflect`), two new single-writer data contracts, two
+dwell-dependent policy terms, the `health/` detector suite, and the deploy ledger. Line
+citations from the original audit were not re-verified against the current files and may
+have drifted by a few lines; the module and contract claims WERE re-checked.
+
 ---
 
 ## If you read nothing else
@@ -114,6 +120,10 @@ Legend: **PURE** = stdlib-only, import-safe, no network/GPU/display (the `runtim
 |---|---|---|
 | `__init__.py` | the layer's contract statement | PURE |
 | `policy.py` | THE production edge picker: one softmax over anti-reverse / novelty / goal-pull / mood (`:124-186`) | PURE |
+| `journal_score.py` | **scored retrieval** over the journal: recency + surprisal-of-the-want + relevance in transition HOPS, under a token budget, with reserved long-term pins (v0.3.0) | PURE |
+| `lived.py` | **the write-back**: what a character has actually LIVED — visits / first / last / dwell / mood-band per pose, plays per clip. Sole writer is that panel's walker (v0.4.0) | PURE (writes `data/mind/lived/<char>.json`) |
+| `graph_provenance.py` | **bi-temporal**: `created` from artifact mtime, and invalidation as a tombstoning diff so a vanished clip is retired rather than forgotten (v0.4.0) | PURE (writes `data/graph/provenance.json`) |
+| `edge_style.py` | **typed edges**: manner + valence derived from each clip's own `motion_prompt`; 1030/1472 real edges typed. Preference layer only (v0.4.0) | PURE |
 | `mind.py` | LLM-intent layer; reads `intent.json`, forces a step toward the goal, pins idles at it (`:69-93`) | PURE |
 | `circadian.py` | clock layer; bedtime chain, sleep dwell, day-time bedtime-edge exclusion (`:126-159`) | PURE |
 | `pathfind.py` | BFS over transition edges: `next_step` / `shortest_path` / `reachable_poses` | PURE |
@@ -127,8 +137,10 @@ Legend: **PURE** = stdlib-only, import-safe, no network/GPU/display (the `runtim
 | `panels.py` | loads panel geometry/palette from `panels.yaml` | PURE-ish (yaml) |
 | `capture_demo.py` | headless GIF/PNG proof-of-motion renderer | HEAVY |
 
-Only `policy.py`, `mind.py`, `circadian.py`, `pathfind.py` and `video_graph.py` are imported
-by the live walker (`_preview_graph.py:33`, plus `runtime/mind.py:33`). The rest of `runtime/`
+Imported by the live walker: `policy.py`, `mind.py`, `circadian.py`, `pathfind.py`,
+`video_graph.py`, plus `lived.py` and `edge_style.py` (v0.4.0). `journal_score.py` and
+`graph_provenance.py` are pure too but are read by the BRAIN and the graph builder, not the
+render loop. The rest of `runtime/`
 belongs to the parked `player.py` rendering path (see §7).
 
 ### `director/` — the brain (all network lives here)
@@ -142,6 +154,7 @@ belongs to the parked `player.py` rendering path (see §7).
 | `otel.py` | optional OpenTelemetry spans; no-op unless `LP_OTEL=1` | PURE when off |
 | `feeds.py` / `signals.py` | live external material (TTL-cached, fail-soft) + clock/house-mood, for the stage manager | HEAVY / PURE-ish |
 | `stage_manager.py` | qwen3 beat writer → `data/stage_state.json` (the parked Track-1 show) | HEAVY |
+| `reflect.py` | **nightly reflection** (v0.4.0): in the circadian dwell, reads the day via `journal_score` and writes what the character UNDERSTANDS back into the same journal as `kind: "reflection"` — no `goal` key, so it never pollutes the want histogram and scores at max importance | HEAVY (LLM, fail-soft) |
 | `voice_eval.py` | measures per-character voice distinctness/fidelity via z.ai | HEAVY |
 
 `mj_safe.check()` is called on every proposal in BOTH paths (`heartbeat.py:491`,
@@ -173,6 +186,11 @@ belongs to the parked `player.py` rendering path (see §7).
 | `lp_watchdog_preview.ps1` | scoped self-heal for `lp-preview` + `lp-mind` only | LIVE |
 | `start_portraits.ps1` / `stop_portraits.ps1` / `shot.ps1` | desktop one-click up/down (3-phase teardown); panel screenshot | LIVE |
 | `_preview_cycle.py`, `_preview_panels.py` | throwaway on-panel clip comparators | dev |
+| `health/` | **eight deterministic detectors + `oracle.yaml`** (v0.4.0). `python main.py verify check projects/living-portraits/health/oracle.yaml`; `verify probe` proves they do not flap. Cron `living_portraits_health`, two-hourly | LIVE |
+| `scripts/deploy_hil.py` | **the deploy ledger** (v0.4.0): file list from `git ls-files`, ships only diffs, writes `DEPLOYED.json` with the source SHA, commits to a git repo ON the host. `--status` answers what is running and whether anyone hand-edited it | LIVE |
+| `scripts/backfill_lived.py` | mines `_preview.log` (76 days, 847k picks) back into the lived record; refuses to write under a live walker | LIVE (one-shot) |
+| `scripts/unstick.py` | ranks one-exit poses by measured dwell and buys a second exit for the worst, on Higgsfield, inside the budget rail | LIVE (manual) |
+| `scripts/release.py` | version/tag gate + public-subset manifest and sync | LIVE |
 
 ### `install/`, `prompts/`, `data/`, `tests/`
 
@@ -202,14 +220,16 @@ All of `data/` is gitignored (`.gitignore:2`). On hil the real files live at
 |---|---|---|---|---|
 | `data/mind/intent.json` | **heartbeat only** (`heartbeat.py:571` via `_atomic_write` `:103`) | walker (`_preview_graph.py:126-138`), mtime-cached | yes (tmp + `os.replace`) | last-write-wins clobbers the other character's goal — `tick()` deliberately re-reads and merges (`heartbeat.py:546-550`) so it can drive a subset; a second *process* defeats that |
 | `data/mind/pose/<char>.json` | **that character's walker only** (`_preview_graph.py:148-156`) | heartbeat (`heartbeat.py:182`) | yes | per-character path is why two panels don't race. One file for both characters would have raced; the split is the fix |
-| `data/mind/journal/<char>.jsonl` | heartbeat, append-only (`heartbeat.py:222-227`) | heartbeat (last 5, `:207`) | **no** — plain append | concurrent appends can interleave a line; readers skip unparsable lines (`:217-218`) so it degrades rather than breaks |
+| `data/mind/journal/<char>.jsonl` | heartbeat, append-only — decisions AND (v0.4.0) nightly `kind: "reflection"` lines from `director/reflect.py` | heartbeat via `journal_score.select` (SCORED retrieval since v0.3.0, not the last 5) | **no** — plain append | concurrent appends can interleave a line; readers skip unparsable lines (`:217-218`) so it degrades rather than breaks |
 | `data/clips/video_graph.json` | `video_graph.build()` (`video_graph.py:471`, `save()` `:54-61`) — driven by `lp-gen` | walker (hot-reload), heartbeat, pathfind | yes | a torn read is impossible by construction; two concurrent builds are prevented by the autogen lock, not by the file |
 | `data/mind/proposals.json` | `autogen.add_proposal` / `set_status` (`:142`, `:157`) — heartbeat proposes, worker transitions | both | yes (`_save` `:130`) | **read-modify-write, not locked.** Heartbeat appending while the worker sets a status can lose one side's edit. The 20-min/4-min cadences make the collision rare, not impossible **(inferred: I found no lock on this file)** |
 | `data/mind/clip_budget.json` | `_spend_clip` (`autogen.py:220`) | `clip_budget_left` (`:212`), status report | yes | the lock (`:583`) is what makes the read-modify-write safe — a second unlocked writer would let the daily cap be exceeded |
 | `data/mind/autogen_poses.json` | `_record_pose` (`autogen.py:530`) | `video_graph._load_autogen` (`:360`) | yes | same class as proposals: RMW under the autogen lock only |
 | `data/mind/gen_events.jsonl` | `_telemetry` (`autogen.py:69`), append-only | `autogen.py status` | no | best-effort by design; never raises into the gen loop (`:78-79`) |
 | `data/mind/autogen.lock` | `_acquire_lock` (`autogen.py:583`) | — | O_EXCL create | this IS the mutex. Stale locks are stolen after a dead PID or 3h (`:63`, `:592-606`) |
-| `data/mind/{zai_key.txt,hf_proxy.json,ic_context_token.txt}` | human | `llm.py`, `hf_gen.py:68-69` | — | secrets; gitignored |
+| `data/mind/lived/<char>.json` | **that character's walker only** (`runtime/lived.py`) — same per-character split as `pose/` | heartbeat (habit line + frontier ground truth), `health/checks.py`, `scripts/unstick.py` | yes | v0.4.0. Flushed at most once a minute from the 10 fps loop. **`flush()` round-trips keys it does not own** — the first version dropped the backfill's provenance block while keeping its numbers |
+| `data/graph/provenance.json` | `video_graph.build()` via `graph_provenance` | `VideoGraph.load(history=True)`, `health/checks.py` | yes | v0.4.0. Tombstones only; bounded at `MAX_TOMBSTONES`. NOT written by the runtime loop |
+| `data/mind/{zai_key.txt,hf_proxy.json,ic_context_token.txt}` | human | `llm.py`, `hf_gen.py:68-69` | — | secrets; gitignored. **`ic_context_token.txt` silently expired 2026-07-14 and nothing noticed for 27 days** — `context_line()` is fail-soft by contract, which is why `health/checks.py:world_context` now exists |
 
 **Atomicity primitive everywhere:** write `<path>.tmp`, then `os.replace`. Both loops use it
 (`heartbeat.py:103-108`, `_preview_graph.py:150-154`, `autogen.py:130-134`, `video_graph.py:57-61`).
@@ -287,6 +307,24 @@ graph size, lock state, both budgets, and cooldown (`autogen.py:832-936`).
 | clock | `circadian.decide(...)` `:205`; `"force"` wins outright `:207-209` | night only: `circadian.is_night` `:244`, `decide` `:245`, `"force"` wins `:248-250` |
 | LLM goal | `mind.decide(...)` `:214`; `"force"` wins `:216-218` | folded in as a *weight*: `goal` + `mood` + `route` passed to `policy.choose` `:257-262` |
 | walk | random idle/transition with anti-pendulum `:219-236` | one softmax, `runtime/policy.py:200-222` |
+
+**Two DWELL-dependent terms were added in v0.4.0, and they exist because the static weights
+trapped a character between two correct guards:**
+
+- **Escape velocity** — the transition multiplier grows with `dwell` past `ESCAPE_AFTER`,
+  bounded by `ESCAPE_MAX`. A pose with one exit and three idles is a trap under a low-energy
+  band (`fixated` = idles x1.5, transitions x0.4). The walker passes `dwell=0` at the sleep
+  pose, because dwelling there for hours IS the behaviour.
+- **Anti-reverse forgiveness** (`policy._reverse_penalty`) — `REVERSE_PENALTY` relaxes to
+  1.0 by `ESCAPE_AFTER + REVERSE_FORGIVE`. On a **pendant** pose (one neighbour, in and out
+  by the same edge) the only exit IS a backtrack, so anti-reverse at a flat 0.04 cut escape
+  velocity's 45% straight back to 3.2%. Anti-reverse is a short-timescale guard — the
+  pendulum is only ugly when it is immediate.
+
+**Reachability is computed over the edges the body will actually use at this hour**
+(`heartbeat.decide_character`). By day the bedtime chain is removed BEFORE the goal menu is
+built. Before v0.4.0 the menu used the full edge set while the walk masked bedtime edges, so
+the brain could want a pose that could not be reached until nightfall.
 | bedtime mask | `circadian` returns `exclude` labels `:220-222` | `circadian.bedtime_labels` passed as `exclude` `:255` |
 
 So in production the clock still has absolute priority at night, and by day the LLM goal is a
@@ -307,8 +345,22 @@ energy bucket, then a neutral default (`policy.py:81-96`).
 
 ## 6. Test coverage
 
-`python -m pytest tests/` → **214 passed, 1 skipped in 5.8 s** (verified locally 2026-08-09).
-Fully offline; `conftest.py` skips rather than errors when numpy/cv2/yaml are absent.
+`python -m pytest tests/` → **343 passed, 1 skipped in ~21 s** (verified locally 2026-08-11;
+was 214 on 2026-08-09). Fully offline; `conftest.py` skips rather than errors when
+numpy/cv2/yaml are absent.
+
+**Since v0.3.0 the suite includes REAL-DATA tests.** A production snapshot lives at
+`data/_realdata/` (gitignored): the live graph, both journals, the lived records. Those tests
+`pytest.skip` with an explicit reason when the snapshot is absent — skip, never silently
+pass — so a fresh clone still goes green. They exist because three defects in two days were
+invisible to fixtures and obvious against production: a 9-day retrieval horizon, a walker
+that never counted the pose it boots in, and a prompt line claiming a first visit "0m ago".
+A fixture agrees with whatever you believed when you wrote it.
+
+New modules: `test_journal_score.py`, `test_memory_probe.py`, `test_lived.py`,
+`test_provenance.py`, `test_edge_style.py`, `test_reflection.py`, `test_escape_velocity.py`,
+`test_llm_extract.py`, `test_context_graph_probe.py` (the scorecard — it asserts criterion
+(e) FAILS, so a green suite is not a green system).
 
 | Test module | Tests | Covers |
 |---|---:|---|

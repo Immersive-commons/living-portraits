@@ -9,6 +9,114 @@ tagged unless it appears here.
 
 ---
 
+## 0.4.0 — 2026-08-11
+
+**The characters write back what they live, and the installation can be asked how it is.**
+
+0.3.0 gave them retrieval. This gives them a *record* — and gives the system a way to say
+"I am fine" that does not depend on a human looking at a wall.
+
+### Added — memory that accretes from living
+- **`runtime/lived.py`** — each walker is now the sole writer of its character's record:
+  visits, when a pose was first and last stood in, dwell, which mood-band it brought, and
+  which clips have *actually rolled* as opposed to merely existing. In-memory counters on
+  the 10 fps path, one atomic flush a minute, every failure swallowed — a statistics file
+  is never worth a dark panel. This makes the audit's sharpest line ("the graph accretes
+  from a credit card, not from experience") false for the first time.
+  It cannot live in the graph file: `video_graph.build()` regenerates that from specs every
+  ~20 minutes and would erase it.
+- **`scripts/backfill_lived.py`** — the walker has printed every pick since 2026-05-26, so
+  76 days of traversal were recovered from `_preview.log`: **847,659 picks, 434 restarts.**
+  Visits and dwell come back exactly (a node change is an arrival, a repeat is an idle
+  unit). Clip plays come back at **label level only** — 83 labels have 2-4 rendered variants
+  sharing a name, so attributing a play to `v2` over `v0` would be invention. **Timestamps do
+  not come back at all**: the log carries hour-of-day and never a date, so backfilled poses
+  carry no first/last rather than a plausible-looking one.
+- **`runtime/graph_provenance.py`** — bi-temporal provenance. Every node and edge carries
+  when the *system* learned it exists, derived from artifact mtime so it survives a rebuild.
+  **259/259 nodes and 1472/1472 edges on the production host.** Invalidation is a diff
+  against the last committed graph rather than a flag, so a vanished clip is tombstoned with
+  its whole record; the live JSON stays a pure live view, making "the walker never plays a
+  dead clip" true by construction.
+- **`director/reflect.py`** — nightly reflection in the circadian dwell, where the heartbeat
+  is idle anyway. Each character reads the day it just lived and says what it *understands*.
+  Idempotent from the journal itself, so a restart mid-window is a no-op. Reflections land
+  in the same JSONL with **no `goal` key**, which is the whole integration: they never
+  pollute the want histogram, they score at maximum importance, and 0.3.0's retrieval picks
+  them up for free.
+
+### Added — the body reads the graph better
+- **`runtime/edge_style.py`** — typed edges, finally true. The entire edge type system was
+  one bit (`idle|transition`). A manner and valence are now derived from each clip's own
+  `motion_prompt`: **1,030 of 1,472 real edges typed, 90.3% of transitions**, across ten
+  manners. 442 stay untyped and are *reported* untyped rather than quietly called neutral.
+  It also caught what nobody had noticed: **316 edges are reverses carrying their twin's
+  prose**, and for 121 of them inverting the manner changes the answer.
+  Preference only — bounded above zero, applied after anti-reverse/novelty/goal.
+- **Escape velocity** (`policy.ESCAPE_*`) — exits get more attractive the longer a character
+  has honestly been somewhere. A pose with one exit and three idles is a trap under a
+  low-energy band; measured on the real incident, 12 expected clips before leaving became 3.
+  `dwell=0` at the sleep pose, so nobody is pulled out of bed at 2am.
+- **Anti-reverse is forgiven with dwell** (`policy._reverse_penalty`). The subtler half:
+  on a **pendant** pose — one neighbour, reached and left by the same edge — the only exit
+  *is* a backtrack, so escape velocity lifted it to 45% and anti-reverse cut it straight back
+  to 3.2%. Two correct guards, trapping a character between them. Anti-reverse is a
+  short-timescale guard by nature and now relaxes to none by 28 idle units. The pendulum
+  stays fixed; the cell opens.
+
+### Fixed
+- **The brain was choosing goals on a graph the body does not walk.** The goal menu was
+  built over *all* edges while the daytime walk masks the bedtime chain, so a goal routed
+  through it could never arrive — the gradient pulled Phineas toward the bedroom at 4pm for
+  an hour. It also explains a pose that went unvisited for its entire 76-day life:
+  unreachable by day, and by night he is asleep.
+- **The Higgsfield worker was discarding every link it was given.** `generate_one_hf` had no
+  reference to `extra_links`; the meshing step was never ported from Midjourney. So
+  `MAX_EXTRA_LINKS` was dead config and **982 of 1,163 proposals carried authored link
+  motions that were never generated** — the star topology was not legacy debt being outgrown,
+  it was being manufactured daily.
+- **`IDLE_COUNT` 3 → 2**, to buy that link. The arithmetic is forced: 2 transitions +
+  IDLE_COUNT idles + 2 link clips against `CLIP_CHAR_CAP=6`. At 3 idles the link is deferred
+  every day forever, which is exactly how the star survived the knob written to prevent it.
+  A third way to stand still is worth less than a second way out.
+- **The walker was erasing what it did not write.** `lived.flush()` serialised only the keys
+  it knew, so the first flush after the backfill kept the numbers and deleted the provenance
+  block. Foreign keys now round-trip.
+- **`prompts/characters/maxx.json` was absent from production for months** — one of two live
+  characters running with no archetype, traits or big-five reaching the model at all. His
+  voice had been surviving on his own journal feeding back. (Also stale on the box:
+  `gallery.yaml`, `bedtime_routine.json`.)
+- **The world seam had been dead for 27 days.** The IC context token went 401 on 2026-07-14
+  and `context_line()` is fail-soft by contract, so every tick looked healthy while the
+  characters were told nothing about the weather, the hour, or the building they hang in.
+
+### Added — the installation can be asked how it is
+- **`health/`** — eight deterministic detectors, one per incident a human had to notice.
+  Runs on the repo's existing oracle contract, so `verify check` gates them and **`verify
+  probe` proves them** — a health check that flaps is a pager that teaches you to ignore it.
+  Registered as the two-hourly `living_portraits_health` cron.
+  A detector never repairs; cannot-see is FAIL, never PASS; every verdict cites its numbers.
+  **Off-by-choice is a PASS** — `stop_portraits.ps1` disables the tasks, and calling a
+  human's deliberate decision a failure is how a monitor gets ignored.
+- **`scripts/deploy_hil.py`** — deploys take their file list from `git ls-files`, ship only
+  what differs, write the source SHA into `DEPLOYED.json` on the host, and commit to a git
+  repo **on the host**. `--status` answers "what is running" and "did anyone hand-edit
+  production" — the questions nobody could answer before.
+- **`scripts/unstick.py`** — ranks one-exit poses by measured dwell and buys a second exit
+  for the worst, on Higgsfield, inside the budget rail.
+
+### Known / not done
+- Criterion (e) of the context-graph scorecard still **FAILS**: zero stored facts about any
+  event, person or room, while 5.3% of the monologue is about exactly those. `/api/context`
+  is restored but it is weather and time — the world as *conditions*, cached and gone next
+  tick, never journaled or scored. Declarative memory is still the honest gap.
+- 47% of Phineas's poses still have one exit or none. The generator no longer manufactures
+  them; the existing ones are a `unstick.py` job, metered.
+- The cron escalation path blocks on an interactive Telegram prompt, so a failing detector
+  cannot currently page anyone. Detection works; the alarm does not ring.
+
+---
+
 ## 0.3.1 — 2026-08-10
 
 **Tell the truth in public.** Two claims in the public record were false, one was stale, and

@@ -38,8 +38,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from director import context as ctx, llm, mj_safe
-from runtime import circadian, journal_score, pathfind, policy, video_graph
+from director import context as ctx, llm, mj_safe, reflect
+from runtime import circadian, journal_score, lived as lived_mod, pathfind, policy, video_graph
 
 try:                                   # optional, fail-open telemetry (no-op if absent/off)
     from director import otel
@@ -74,6 +74,7 @@ JOURNAL_TOKENS = 700         # token budget for RETRIEVED monologue (runtime/jou
                              # of a 64-day life and made a 2,060-repetition rut unnoticeable.
 NEIGHBOUR_STALE = 1800.0     # ignore a neighbour's published pose older than this (dark panel)
 FRONTIER_SHOWN = 2           # unvisited poses named per tick ("a version of you you've never been")
+NEW_POSE_DAYS = 7            # a pose the system learned within this window reads as NEW to its owner
 PROSE_MODEL = "glm-5.1"      # GLM 5.2-class for CREATIVE pose/voice authorship (was glm-4.6).
                              # Per-tick decisions also run glm-5.1 via DEFAULT_MODEL now. If the
                              # heartbeat feels slow, revert ticks to "glm-4.5-air" (fast) in llm.py.
@@ -83,8 +84,18 @@ PROSE_MODEL = "glm-5.1"      # GLM 5.2-class for CREATIVE pose/voice authorship 
 # leaf dead-ends whose only exit was the reverse clip (you watch a move, then watch it run
 # backwards). These two knobs grow a WEB instead -- both are bounded + fail-safe (no candidate ->
 # today's hub-only behavior; no cost change there).
-IDLE_COUNT = 3               # idle loops authored per new pose (was 2). >2 so lingering varies
-                             # instead of flickering between the same A/B pair. +1 MJ video/pose.
+IDLE_COUNT = 2               # idle loops authored per new pose. Was 3 (">2 so lingering varies
+                             # instead of flickering between the same A/B pair"), cut back on
+                             # 2026-08-10 to BUY THE WEB LINK. The arithmetic is forced: a pose
+                             # costs 2 transitions + IDLE_COUNT idles + 2 link clips, against
+                             # CLIP_CHAR_CAP=6/day. At IDLE_COUNT=3 that is 7 and the link can
+                             # never be afforded -- it would be deferred every single day,
+                             # forever, which is how the star topology survived a config knob
+                             # that was supposed to prevent it. At 2 it is exactly 6.
+                             # The trade is deliberate: a third way to STAND STILL is worth less
+                             # than a second way OUT. 56 of 120 poses having one exit is the
+                             # expensive problem; A/B idle flicker is a cosmetic one, and the
+                             # escape-velocity term now moves a character on before it grates.
 MAX_EXTRA_LINKS = 1          # extra sibling links beyond the hub (0 = star, today's behavior).
                              # 1 link interconnects the new pose with a nearby (preferentially
                              # dead-end) sibling so leaves mesh over time. Each link = +2 MJ videos.
@@ -205,7 +216,17 @@ def _pose_label(graph, node):
     gp = gp.replace("\n", " ")
     if len(gp) > 130:
         gp = gp[:127].rstrip() + "..."
-    return "%s (%s)" % (pose, gp) if gp else pose
+    label = "%s (%s)" % (pose, gp) if gp else pose
+    # NEW-POSE PROVENANCE (transaction time: when the SYSTEM learned this pose exists).
+    # These characters GROW their own poses unattended, and until now a character could
+    # not tell a body it has had for two months from one that appeared last night.
+    created = n.get("created")
+    if created:
+        days = (time.time() - created) / 86400.0
+        if 0 <= days < NEW_POSE_DAYS:
+            label += " -- NEW, this only became possible for you %s ago" % (
+                "today" if days < 1 else "%d days" % int(days))
+    return label
 
 
 def _journal_entries(character):
@@ -260,6 +281,44 @@ def _neighbour_lines(character, now=None):
     return out
 
 
+def _lived_book(character):
+    """Reader-side view of what this character's body has recorded. Fail-soft: no record yet
+    (a fresh install, or a walker that has not flushed) -> None, and every consumer omits its
+    line rather than inventing a number."""
+    try:
+        return lived_mod.load(character)
+    except Exception:
+        return None
+
+
+def _lived_line(book, node, now=None):
+    """What this pose has been to this character, from the record its own body kept.
+
+    The journal only logs decision POINTS, so a pose merely walked THROUGH never appeared in
+    it — the character could pass a place a hundred times and have no way to know. The lived
+    record counts arrivals, so this is the first line in the system that reports habit rather
+    than narrative. Empty (never stood here, or no record yet) -> ""."""
+    if book is None:
+        return ""
+    visits = book.visits(node)
+    if visits <= 0:
+        return ""
+    ts = time.time() if now is None else now
+    first, last = book.age(node, now=ts)
+    bits = ["You have stood here %s" % ("once" if visits == 1 else "%d times" % visits)]
+    # Only claim a history when there is one. A pose first stood in four minutes ago has no
+    # "first ... ago" worth saying, and saying it anyway teaches the character a false past.
+    if first and first >= 3600:
+        bits.append("the first %s" % journal_score._ago(ts, ts - first))
+    mood = book.dominant_mood(node)
+    if mood:
+        bits.append("usually feeling %s" % mood)
+    t = book.totals()
+    tail = ("" if not t.get("poses_lived") else
+            " Across your whole life you have lived %d of your poses." % t["poses_lived"])
+    return ", ".join(bits) + "." + tail
+
+
 def _frontier_line(graph, node, goals, visited, hops):
     """The poses reachable from here that this character has NEVER been in.
 
@@ -310,10 +369,18 @@ def _build_user_prompt(graph, character, node, dwell, goals, hour, hops=None):
     journal = journal_score.render(picked, now=ts)
     jtxt = "\n".join(journal) if journal else "(nothing yet -- this is the start of your day)"
     aggregate = journal_score.aggregate_line(entries, now=ts)
-    frontier = _frontier_line(graph, node, goals, journal_score.visited_poses(entries), hops or {})
+
+    # The frontier is measured against what the BODY actually did, not what the journal
+    # happened to record. A pose walked THROUGH never becomes a journal entry, so the
+    # journal-derived "visited" set over-reports the frontier; the lived record is ground
+    # truth. Union of both, so the answer only ever gets more honest, never less.
+    book = _lived_book(character)
+    visited = journal_score.visited_poses(entries) | (book.visited() if book else set())
+    frontier = _frontier_line(graph, node, goals, visited, hops or {})
+    habit = _lived_line(book, node, now=ts)
     neighbours = _neighbour_lines(character, now=ts)
 
-    extra = "\n".join(x for x in ([aggregate, frontier] + neighbours) if x)
+    extra = "\n".join(x for x in ([aggregate, habit, frontier] + neighbours) if x)
     extra = ("\n" + extra + "\n") if extra else ""
     bands = ", ".join(sorted(policy.MOOD_BIAS))
     clock = now.strftime("%-I:%M %p") if os.name != "nt" else now.strftime("%I:%M %p").lstrip("0")
@@ -372,6 +439,38 @@ def _resolve_goal(goal, character, allowed):
     return None, "novel"
 
 
+def _propose_hub(graph, character, node, spec_bedtime=None):
+    """Where a NEW pose should hang from -- which is not always where the character is
+    standing when it thinks of one.
+
+    A new pose is wired to its hub, so the hub decides where it sits in the topology. Homing
+    on the current pose looks natural and quietly builds dead ends: a pose invented at
+    midnight hangs off `sleep`, whose exits are masked all day, so it is reachable only for
+    the hours the character is unconscious. Measured 2026-08-10, four of Phineas's costliest
+    cul-de-sacs -- midnight_coronation, midnight_audition, shattered_mirror -- exit ONLY into
+    sleep, and 15 of his 56 one-exit poses exit only into the bedtime chain.
+
+    So: refuse a bedtime pose, refuse a pose that is itself a dead end (that would grow a
+    chain of spurs), else keep the natural home. Falls back to the character's real hub."""
+    pose_of = lambda n: n.split(":", 1)[1] if ":" in n else n
+    fallback = pose_of(_hub(graph, character) or "%s:anchor" % character)
+    if not node:
+        return fallback
+    try:
+        spec = spec_bedtime
+        if spec is None:
+            spec = json.loads(BEDTIME_SPEC.read_text(encoding="utf-8"))
+    except Exception:
+        spec = {}
+    if node in circadian.bedtime_poses(spec, character):
+        return fallback                       # never grow the graph out of the bedroom
+    outs = {e.get("to") for e in graph.edges
+            if e.get("from") == node and e.get("kind") == "transition"} - {node}
+    if len(outs) <= 1:
+        return fallback                       # do not hang a spur off a spur
+    return pose_of(node)
+
+
 def _resolve_band(raw):
     """Map the model's declared band onto policy's vocabulary, or None.
 
@@ -407,8 +506,23 @@ def decide_character(graph, spec_bedtime, character, hour, model, dry_run, log):
         log("  %s: night (circadian owns the body) -> no goal" % character)
         return None, None, None
 
-    hops = pathfind.hops_from(graph.edges, node)     # one BFS: memory relevance + frontier
-    goals = sorted(pathfind.reachable_poses(graph.edges, node)
+    # REACHABILITY MUST BE COMPUTED OVER THE EDGES THE BODY WILL ACTUALLY USE.
+    # The daytime walk masks every bedtime-labelled edge (_preview_graph._pick_policy passes
+    # circadian.bedtime_labels as `exclude`), but this menu was built from the FULL edge set,
+    # so the brain could want a pose whose only route runs through the bedtime chain -- and
+    # then the goal gradient pulls the character toward the bedroom in the afternoon, forever,
+    # because it can never arrive. That is exactly the invariant this design claims to hold:
+    # "the brain cannot want something the body cannot walk to." It did not hold; the two
+    # halves were reading different graphs. Measured 2026-08-10: it pinned Phineas at
+    # commanding_aether for an hour with an unreachable goal (rogues_applause), one of three
+    # poses never once stood in in 76 days -- unreachable by DAY is why.
+    walkable = graph.edges
+    if not circadian.is_night(spec_bedtime, character, hour):
+        masked = circadian.bedtime_labels(spec_bedtime, character)
+        if masked:
+            walkable = [e for e in graph.edges if e.get("label") not in masked]
+    hops = pathfind.hops_from(walkable, node)        # one BFS: memory relevance + frontier
+    goals = sorted(pathfind.reachable_poses(walkable, node)
                    - circadian.bedtime_poses(spec_bedtime, character))
     if not goals:
         log("  %s: nowhere to go from %s -> no goal" % (character, node))
@@ -517,7 +631,7 @@ def propose_pose(character, model, dry_run, log, max_pending=8):
     node, _ = _current_pose(graph, character)
     if node is None:
         return None
-    hub = node.split(":", 1)[1] if ":" in node else "anchor"
+    hub = _propose_hub(graph, character, node)
     pend = [p for p in autogen.load_proposals()["proposals"]
             if p["character"] == character and p["status"] in ("pending", "approved")]
     if len(pend) >= max_pending:
@@ -679,6 +793,34 @@ def tick(characters, model, dry_run, log):
             log("  wrote %s" % INTENT_PATH)
         else:
             log("  [dry-run] intent would be: %s" % json.dumps(intent.get("characters", {})))
+
+        # --- NIGHTLY REFLECTION. During the circadian dwell the heartbeat idles at
+        # NIGHT_INTERVAL and writes no journal at all, so this is free compute. 66 days of
+        # life had no ARC: the characters could recall moments and never draw a conclusion
+        # from them. Runs AFTER the intent write on purpose -- a slow reflection must never
+        # delay the file the player depends on. Idempotent per character per night (derived
+        # from the journal itself, so a restart mid-window is a no-op, not a duplicate) and
+        # never raises. NOT gated on all_night: bedtimes are staggered (phineas 21:00,
+        # maxx 00:00), and that would mute the earlier sleeper for hours.
+        for ch in characters:
+            if not circadian.is_night(bedtime, ch, hour):
+                continue                        # skip an 11k-line journal parse by day
+            try:
+                _, ident = _identity_block(ch, _load_char_spec(ch))
+                sleep = circadian.sleep_node(bedtime, ch)
+                r = reflect.maybe_reflect(
+                    ch, hour=hour, spec=bedtime, model=PROSE_MODEL,
+                    system=BASE_SYSTEM + "\n\n" + ident,
+                    # hop-relevance from where the body is actually sleeping: the one
+                    # retrieval term nothing outside a graph can compute.
+                    distmap=pathfind.hops_from(graph.edges, sleep) if sleep else None,
+                    dry_run=dry_run, log=log)
+                if r.get("ok"):
+                    log("  %s reflected [%s] -> %d line(s)" % (ch, r.get("why"), len(r.get("entries") or [])))
+                elif r.get("why") and "already reflected" not in r["why"]:
+                    log("  %s no reflection (%s)" % (ch, r["why"]))
+            except Exception:                   # belt and braces; maybe_reflect swallows its own
+                log("reflect crashed for %s:\n%s" % (ch, traceback.format_exc()))
         return all_night
 
 

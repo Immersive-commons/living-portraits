@@ -739,10 +739,69 @@ def generate_one_hf(p, *, dry_run=False, log=print):
             _mp4_to_gif(mp4, gif)
             log("    idle %s -> %s (%d left today)" % (i["id"], gif.name, clip_budget_left(char)))
 
-        _record_pose(p, hub, fwd, rev)
+        # 5. THE WEB LINK. A pose whose only exit is the reverse of the clip that got you
+        #    there is a spur, and a graph of spurs is a star: 56 of Phineas's 120 poses and
+        #    56 of MAXX's 138 have one exit or none. The MJ worker meshed new poses against a
+        #    sibling; that step was never ported when generation moved to Higgsfield, so
+        #    MAX_EXTRA_LINKS has been dead config and every pose grown since has been a spur
+        #    -- while the heartbeat kept authoring link motions for them. Measured 2026-08-10:
+        #    982 of 1163 proposals carry extra_links and not one was ever generated.
+        #    Costs +2 clips per pose, which is what the budget arithmetic already assumed.
+        recorded_links = []
+        for el in (p.get("extra_links", []) or []):
+            sib = el.get("sibling")
+            sib_img = (g.nodes.get("%s:%s" % (char, sib)) or {}).get("image")
+            if not sib or not sib_img or not (ROOT / sib_img).exists():
+                log("    SKIP link %s<->%s -- sibling still missing" % (sib, label))
+                continue
+            lfwd, lrev = _edge_labels(sib, label)
+            pairs = [(lfwd, ROOT / sib_img, still_png, el.get("motion", "")),
+                     (lrev, still_png, ROOT / sib_img,
+                      (el.get("reverse_motion") or "").strip() or
+                      ("the figure moves from the %s pose to its %s pose and settles naturally"
+                       % (label, sib)))]
+            made = []
+            for llabel, start, end, motion in pairs:
+                lgif = PROTO / ("%s_%s_v0.gif" % (char, llabel))
+                if lgif.exists() and lgif.stat().st_size > 0:
+                    made.append(llabel)
+                    continue
+                if clip_budget_left(char) <= 0:
+                    log("    budget ran out before link %s -- pose keeps its core edges" % llabel)
+                    break
+                try:
+                    lmp4 = PROTO / ("%s_%s_v0.mp4" % (char, llabel))
+                    hf_gen.generate_clip(start, end, motion, lmp4)
+                    _spend_clip(char)
+                    _mp4_to_gif(lmp4, lgif)
+                    made.append(llabel)
+                    log("    link %s -> %s (%d left today)" % (llabel, lgif.name, clip_budget_left(char)))
+                except Exception as le:      # a link is a bonus; the core pose already works
+                    log("    WARN link %s failed (%r) -- keeping the pose without it" % (llabel, le))
+                    break
+            # both directions or neither: the merge drops a half-link anyway, and recording
+            # one whose clips are missing puts a lie in the record.
+            if len(made) == 2:
+                recorded_links.append({"sibling": sib, "label": lfwd, "reverse_label": lrev,
+                                       "motion": el.get("motion", "")})
+        wanted_links = len(p.get("extra_links") or [])
+        if wanted_links:
+            log("  web-links: %d/%d landed (star -> web)" % (len(recorded_links), wanted_links))
+
+        # The core pose is complete and merges NOW either way -- a missing link must never
+        # hold back a working pose. But if a link was wanted and the budget ran out before
+        # it, come back for it tomorrow rather than marking the pose done without one:
+        # older proposals carry 3 idles (7 clips against a 6/day cap), so "done" here would
+        # mean the link is deferred forever, which is exactly the bug that let the star
+        # topology outlive the config knob meant to prevent it.
+        _record_pose(p, hub, fwd, rev, extra_links=recorded_links)
         _rebuild_graph(log)
         _spend(char)
-        set_status(p["id"], "done")
+        if wanted_links and not recorded_links and clip_budget_left(char) <= 0:
+            set_status(p["id"], "approved")
+            log("  core pose merged; link deferred to the next run (budget)")
+        else:
+            set_status(p["id"], "done")
         _telemetry("gen", char=char, label=label, outcome="ok", backend="hf",
                    clips=n_clips, secs=round(time.time() - _t0, 1))
         log("  DONE %s:%s in %.0fs" % (char, label, time.time() - _t0))

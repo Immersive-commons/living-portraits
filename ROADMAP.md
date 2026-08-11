@@ -11,16 +11,24 @@ Milestones are versions (`scripts/release.py`). Effort is engineer-hours, honest
 
 ---
 
-## Where we are — v0.2.0, shipped and running
+## Where we are — v0.4.0, shipped and running
 
-The portraits generate their own poses unattended, on a budget, on `hil`. Two characters,
-257 nodes, 1462 edges, ~90 credits/day against a 3000/month allowance that does not roll over.
-The clip budget (13/day, 6/character) is the rail that replaced human approval, and it has held
-for two consecutive days — both ended at exactly 12/13 with demand still queued.
+Two characters on `hil`, 262 nodes / 1532 edges, ~90 credits/day against a 3000/month
+allowance that does not roll over. Retrieval is scored across a 25,000-entry journal, the
+graph carries a time dimension and typed edges, and each character keeps a record of 76 days
+of where it has actually stood — 847,659 picks, recovered from the walker's own pick-log.
+Eight deterministic detectors say whether the installation is healthy, two-hourly, without
+anyone looking at a wall.
 
-**What is true and unflattering:** the graph is procedural, the *memory* is a flat 24,598-entry
-log read five lines at a time, and the characters cannot perceive each other. The system is
-convincing for about thirty-five minutes at a time.
+**What is true and unflattering:** the world half does not exist. Zero stored facts about any
+event, person or room, while 5.3% of what these characters say is about exactly those things.
+`/api/context` gives them weather and time — the world as conditions, cached and gone next
+tick, never journaled and never scored. And 47% of Phineas's poses still have one exit or
+none; the generator no longer manufactures them, but the existing ones are a metered job.
+
+**The line for a talk, now with numbers behind it:** a true context graph in its retrieval
+half, a procedural asset manifest in its representation half, and blind to the world in its
+content half.
 
 ---
 
@@ -72,7 +80,7 @@ summaries (Obs.8: 40k vs 900 tokens), LLM relation-extraction for typed edges
 
 ---
 
-## v0.3.1 — Tell the truth in public ← THE NEXT MILESTONE
+## v0.3.1 — Tell the truth in public ✅ SHIPPED 2026-08-10
 
 Small, and it is currently wrong, which is why it is not deferred.
 
@@ -90,7 +98,26 @@ Small, and it is currently wrong, which is why it is not deferred.
 
 ---
 
-## v0.4.0 — A URL you can check
+## v0.4.0 — "It writes back" ✅ SHIPPED 2026-08-11
+
+**Not what this slot said it would be.** The plan here was hosting; what actually happened is
+that "fix everything that needs fixing" turned into the memory-write-back half of the context
+graph, and hosting moved down. Recorded rather than rewritten, because the divergence is the
+interesting part: the roadmap was written from an audit, and production had more to say.
+
+Shipped: the lived write-back + a 76-day backfill from the pick-log (847k picks), bi-temporal
+provenance (259/259 nodes, 1472/1472 edges), nightly reflection, typed edges (1030/1472),
+escape velocity and anti-reverse forgiveness, the daytime-reachability fix, the web-link port
+that stopped the star topology being manufactured daily, an eight-detector health oracle, and
+a deploy ledger. Full notes in `CHANGELOG.md`.
+
+Three things it also uncovered, none of which were on any plan: a character spec missing from
+production for months, the world-context token dead for 27 days, and 982 authored link motions
+being discarded by the generator.
+
+---
+
+## v0.5.0 — A URL you can check ← THE NEXT MILESTONE
 
 `_hosting/PROPOSAL.md`, already costed. Cloudflare R2 on a custom domain, **$0/month**, Vercel
 never in the path.
@@ -101,12 +128,14 @@ published footprint is 332 MB with a 7.2 MB session. Freshness is a push from
 `autogen._rebuild_graph()` with content-addressed keys, uploading `graph.json` **last** so the
 index never points at an object that is not up yet.
 
-**Effort: ~1 day.** Do it after v0.3.0 — publishing a graph whose characters cannot remember is
-publishing the less interesting version.
+**Effort: ~1 day.** Deferred past v0.4.0 for the same reason it was deferred past v0.3.0:
+publishing a graph whose characters could not remember was the less interesting version. They
+can now, and the graph has a time dimension and typed edges to show, so this is the next one
+worth doing.
 
 ---
 
-## v0.5.0 — Make the load-bearing parts provable
+## v0.6.0 — Make the load-bearing parts provable
 
 From the map's risk ranking, not from a desire for coverage.
 

@@ -1,0 +1,96 @@
+# Living Portraits -- production health oracle.
+#
+# Six deterministic detectors, one per incident that a HUMAN had to notice on 2026-08-10.
+# That is the ratchet this file exists to turn: an incident nobody had a check for becomes a
+# check, so it can only cost you once.
+#
+#   python main.py verify check projects/living-portraits/health/oracle.yaml
+#   python main.py verify probe projects/living-portraits/health/oracle.yaml   # determinism
+#
+# `probe` matters more here than anywhere else in the repo: a health check that flaps is not
+# a health check, it is a pager that teaches you to ignore it. Thresholds are deliberately
+# coarse and every count is read over a fixed window so two runs agree.
+#
+# cwd is resolved relative to THIS file's directory (oracle_gate.py contract), so "." is
+# health/ and ".." is the project root.
+checks:
+  # 1. The wall is painting. Process liveness is NOT the check -- the player has clean-exited
+  #    on a fullscreen game before, and a live process printing nothing is a dark wall.
+  - id: lp-panels-alive
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "panels_alive"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK panels_alive: PASS"
+    stdout_not_contains: "CHECK panels_alive: FAIL"
+
+  # 2. Nobody is stuck in a cul-de-sac. Phineas looped three clips for an hour at
+  #    commanding_aether -- one exit, an unreachable goal, and a mood that suppresses
+  #    transitions -- and it read as "broken" on the wall long before anything alerted.
+  - id: lp-walker-moving
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "walker_moving"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK walker_moving: PASS"
+    stdout_not_contains: "CHECK walker_moving: FAIL"
+
+  # 3. The brain never wants what the body cannot reach AT THIS HOUR. Regression guard for
+  #    the fix of 2026-08-10: the goal menu and the walk must read the same edge set. When
+  #    they did not, one pose stayed unvisited for its entire 76-day life.
+  - id: lp-goal-reachable
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "goal_reachable"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK goal_reachable: PASS"
+    stdout_not_contains: "CHECK goal_reachable: FAIL"
+
+  # 4. The lived record keeps what it did not write. A flush erased the 76-day backfill's
+  #    provenance while keeping its numbers -- the data stayed right and stopped being able
+  #    to say how it knew.
+  - id: lp-lived-integrity
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "lived_integrity"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK lived_integrity: PASS"
+    stdout_not_contains: "CHECK lived_integrity: FAIL"
+
+  # 5. Production matches the repo and nobody hand-edited the box. maxx.json was absent from
+  #    production for MONTHS -- one of two live characters running with no persona at all --
+  #    and nothing on either side could see it.
+  - id: lp-deploy-drift
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "deploy_drift"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK deploy_drift: PASS"
+    stdout_not_contains: "CHECK deploy_drift: FAIL"
+
+  # 6. The brain is not quietly failing. 165 gateway 401s and 62 unparseable replies had
+  #    accumulated unnoticed, each one a tick where a character stood still.
+  - id: lp-error-rate
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "error_rate"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK error_rate: PASS"
+    stdout_not_contains: "CHECK error_rate: FAIL"
+
+  # 7. The one real-world input these portraits have is actually arriving. context.py is
+  #    fail-soft BY CONTRACT -- "a dead source just omits the clause; it can NEVER break a
+  #    heartbeat tick" -- which is correct design and is exactly why nobody noticed the IC
+  #    token going 401 on 2026-07-14. For 27 days the characters were told nothing about the
+  #    weather, the hour outside, or the building they hang in, and every tick looked
+  #    perfectly healthy. Fail-soft without a detector is just silence.
+  - id: lp-world-context
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "world_context"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK world_context: PASS"
+    stdout_not_contains: "CHECK world_context: FAIL"
+
+  # 8. A reflection was written in the last 48h. It runs once per character per night, in a
+  #    window nobody watches, so if it silently stopped the only symptom is a character that
+  #    slowly stops having opinions -- which no one would notice for weeks.
+  - id: lp-reflection-fired
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "reflection_fired"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK reflection_fired: PASS"
+    stdout_not_contains: "CHECK reflection_fired: FAIL"
