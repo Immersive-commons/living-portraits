@@ -9,6 +9,41 @@ tagged unless it appears here.
 
 ---
 
+## Unreleased
+
+**The context graph is now something you can look at.** Every layer 0.3.x and 0.4.0 added lives
+in a file the viewer never opened, so the only picture of this system was still the May one: a
+pose graph and a clip list.
+
+### Added
+- **`scripts/export_context_view.py`** — joins the six single-writer stores and the two
+  derivations that only existed in Python into one `data/graph/context_view.json` (≈1 MB, 0.5s):
+  the graph, `graph_provenance.stamp`'s transaction time, the lived record's valid time,
+  `edge_style.index`'s manner and valence, the journal with `journal_score.select` run for the
+  pose each character is standing in *right now*, and the live `policy.weigh` surface over its
+  exits. Read-only over production by contract — it never calls `build()`, never writes back into
+  `video_graph.json`, and never touches a journal.
+- **`graph_viewer.html` rebuilt as six lenses over one graph** — Structure (the old view),
+  **Lived** (visits as heat, dwell as size, clips that have actually rolled vs merely exist),
+  **Provenance** (age gradient plus a scrubber that replays the graph accreting, node by node,
+  from 2026-05-26 to now), **Manner** (valence-coloured typed edges, untyped ones dotted and
+  counted), **Frontier** (reachable poses never once entered, with their hop distance), and
+  **Decision** (the live weight on every exit, the goal ring, the route between them). Plus a
+  Memory tab showing what each character is remembering this minute and why it scored, a
+  Codebase-map tab that checks every row against disk, and a tab for what the artifact does not
+  know. The now-strip re-reads the walker's pose file every eight seconds.
+
+### Fixed
+- **The viewer would have drawn a softmax over a sleeping character.** `_pick_policy` asks
+  circadian first and returns on a force, so at night the bedtime chain owns the body and the
+  policy weights are not consulted at all. The export now carries `decision.consulted` and the
+  artifact says so instead of illustrating a decision nothing is making.
+- A CSS rule meant for the weight bar's fill also matched its label spans, stacking the label and
+  the percentage at the same x. Caught by probing the two spans' bounding boxes rather than by
+  looking at a screenshot, which is the only way that class of bug is falsifiable.
+
+---
+
 ## 0.4.0 — 2026-08-11
 
 **The characters write back what they live, and the installation can be asked how it is.**

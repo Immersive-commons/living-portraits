@@ -3,182 +3,709 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Living Portraits — Video Knowledge Graph</title>
+<title>Living Portraits — Context Graph</title>
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
-  :root { --bg:#0d0b10; --panel:#16131c; --ink:#e9e4f0; --muted:#9a90ad; --gold:#d4a85a; --teal:#78ccc2; }
+  :root {
+    --bg:#0d0b10; --panel:#16131c; --panel2:#1c1826; --line:#2a2433;
+    --ink:#e9e4f0; --muted:#9a90ad; --dim:#6d6480;
+    --gold:#d4a85a; --teal:#78ccc2; --magenta:#ff3df0; --indigo:#8b6cff;
+    --hot:#ff8a3c; --cold:#3a5a8a; --good:#6fd08c; --bad:#e8624e;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:14px 20px; border-bottom:1px solid #2a2433; }
-  header h1 { margin:0; font-size:18px; letter-spacing:.02em; }
-  header p { margin:4px 0 0; color:var(--muted); font-size:12px; max-width:80ch; }
-  .wrap { display:flex; height:calc(100vh - 74px); }
-  #netwrap { flex:1; min-width:0; position:relative; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
+  a { color:var(--teal); }
+  header { padding:10px 18px 8px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:17px; letter-spacing:.02em; white-space:nowrap; }
+  header h1 small { color:var(--muted); font-weight:400; font-size:12px; letter-spacing:.06em; text-transform:uppercase; margin-left:8px; }
+  #chips { display:flex; gap:6px; flex-wrap:wrap; flex:1; }
+  .chip { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:99px; padding:2px 9px; white-space:nowrap; }
+  .chip b { color:var(--ink); font-weight:600; }
+  .chip.warn { border-color:#6a4a20; color:#e0a860; }
+  nav { display:flex; gap:4px; }
+  nav button { background:transparent; color:var(--muted); border:1px solid transparent; border-radius:8px 8px 0 0; padding:5px 13px; font-size:12.5px; cursor:pointer; }
+  nav button:hover { color:var(--ink); }
+  nav button.on { color:var(--ink); background:var(--panel); border-color:var(--line); border-bottom-color:var(--panel); }
+  main { height:calc(100vh - 47px); }
+  .tab { display:none; height:100%; }
+  .tab.on { display:flex; }
+  /* ---------- graph tab ---------- */
+  #rail { width:242px; flex:none; background:var(--panel); border-right:1px solid var(--line); padding:12px; overflow:auto; }
+  .lbl { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.09em; margin:14px 0 6px; }
+  .lbl:first-child { margin-top:0; }
+  .lens { display:block; width:100%; text-align:left; background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 9px; margin-bottom:5px; font-size:12.5px; cursor:pointer; }
+  .lens:hover { border-color:#4a4060; }
+  .lens.on { border-color:var(--gold); background:#241d16; }
+  .lens i { display:block; font-style:normal; font-size:10.5px; color:var(--muted); margin-top:2px; line-height:1.35; }
+  label.ck { display:flex; align-items:center; gap:7px; font-size:12.5px; margin:4px 0; cursor:pointer; }
+  input[type=range] { width:100%; accent-color:var(--gold); }
+  .btn { background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:5px 9px; font-size:11.5px; cursor:pointer; }
+  .btn:hover { border-color:#4a4060; }
+  #center { flex:1; min-width:0; display:flex; flex-direction:column; }
+  #netwrap { flex:1; position:relative; min-height:0; }
   #net { position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, #181420, #0d0b10); }
-  #legend { position:absolute; top:12px; left:12px; z-index:5; background:rgba(13,11,16,.82); border:1px solid #2a2433; border-radius:10px; padding:10px 12px; font-size:12px; backdrop-filter:blur(4px); }
-  #legend .t { font-size:10px; letter-spacing:.06em; color:var(--muted); text-transform:uppercase; }
-  #legend .row { display:flex; align-items:center; gap:7px; margin-top:5px; }
-  #legend hr { border:none; border-top:1px solid #2a2433; margin:8px 0 4px; }
-  .dot { width:11px; height:11px; border-radius:50%; box-shadow:0 0 9px currentColor; flex:none; }
-  .ln { width:22px; height:0; flex:none; }
-  .ln.dash { border-top:3px dashed #ff5a3c; }
-  .ln.solid { border-top:3px solid #8a7fa0; }
-  #relayout { margin-top:10px; width:100%; background:#221c2e; color:var(--ink); border:1px solid #3a3147; border-radius:7px; padding:5px; font-size:11px; cursor:pointer; }
-  #relayout:hover { background:#2c2540; }
-  #detail { width:380px; background:var(--panel); border-left:1px solid #2a2433; padding:16px; overflow:auto; }
-  #detail h2 { margin:0 0 4px; font-size:16px; }
-  #detail .tag { display:inline-block; font-size:11px; color:var(--muted); border:1px solid #2a2433; border-radius:99px; padding:2px 9px; margin:0 4px 4px 0; }
-  #detail .prompt { background:#0d0b10; border:1px solid #2a2433; border-radius:8px; padding:10px; color:#cfc6dd; font-size:12.5px; white-space:pre-wrap; margin:8px 0; }
-  #detail .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-top:14px; }
-  #detail img { width:100%; border-radius:8px; display:block; margin:6px 0; border:1px solid #2a2433; }
+  #lensnote { position:absolute; left:12px; top:12px; z-index:4; width:min(44ch,62%); max-height:38%; overflow:auto; background:rgba(13,11,16,.88); border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-size:11.5px; color:var(--muted); backdrop-filter:blur(4px); }
+  #lensnote b { color:var(--ink); }
+  #legend { position:absolute; right:12px; bottom:12px; z-index:4; background:rgba(13,11,16,.88); border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-size:11px; backdrop-filter:blur(4px); }
+  .row { display:flex; align-items:center; gap:7px; margin-top:4px; }
+  .dot { width:10px; height:10px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor; }
+  .ln { width:20px; height:0; flex:none; border-top:3px solid #8a7fa0; }
+  .ln.dash { border-top-style:dashed; }
+  #now { flex:none; height:186px; border-top:1px solid var(--line); background:var(--panel); display:flex; gap:1px; overflow-x:auto; }
+  .nowcard { flex:1; min-width:330px; padding:10px 13px; border-right:1px solid var(--line); overflow:auto; }
+  .nowcard h3 { margin:0 0 3px; font-size:13px; letter-spacing:.04em; }
+  .nowcard .sub { color:var(--muted); font-size:11.5px; }
+  .bar { position:relative; background:#221c2e; border-radius:4px; height:16px; margin:3px 0; overflow:hidden; }
+  .bar > span { position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg,#5a4a8a,#8b6cff); }
+  .bar em { position:absolute; inset:0; padding:0 6px; font-style:normal; font-size:10.5px; line-height:16px; display:flex; justify-content:space-between; gap:8px; }
+  .bar em span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .bar em span:last-child { flex:none; }
+  .asleep .bar > span { background:linear-gradient(90deg,#2f2a44,#4a3f6e); }
+  #detail { width:clamp(300px, 27vw, 400px); flex:none; background:var(--panel); border-left:1px solid var(--line); padding:14px; overflow:auto; }
+  #detail h2 { margin:0 0 6px; font-size:15px; word-break:break-all; }
+  .tag { display:inline-block; font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:99px; padding:1px 8px; margin:0 4px 4px 0; }
+  .prompt { background:#0d0b10; border:1px solid var(--line); border-radius:8px; padding:9px; color:#cfc6dd; font-size:12px; white-space:pre-wrap; margin:6px 0; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:12px; margin:6px 0; }
+  .kv b { color:var(--muted); font-weight:400; }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .grid figure { margin:0; }
-  .grid figcaption { font-size:11px; color:var(--muted); text-align:center; }
+  .grid img { width:100%; border-radius:8px; border:1px solid var(--line); display:block; }
+  .grid figcaption { font-size:10.5px; color:var(--muted); text-align:center; }
+  #detail img.still { width:100%; border-radius:8px; border:1px solid var(--line); margin:6px 0; }
   .hint { color:var(--muted); font-size:12px; }
+  /* ---------- text tabs ---------- */
+  .sheet { flex:1; overflow:auto; padding:20px 26px; }
+  .sheet h2 { font-size:15px; margin:22px 0 8px; letter-spacing:.03em; }
+  .sheet h2:first-child { margin-top:0; }
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(430px,1fr)); gap:20px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px 16px; }
+  .card h3 { margin:0 0 8px; font-size:13.5px; }
+  .mem { border-left:2px solid var(--line); padding:3px 0 3px 10px; margin:8px 0; font-size:12.5px; }
+  .mem .meta { color:var(--muted); font-size:11px; }
+  .mem.refl { border-left-color:var(--indigo); }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  th,td { text-align:left; padding:5px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+  td code { color:var(--teal); font-size:12px; }
+  .layer { color:var(--gold); font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+  ul.caveats li { margin-bottom:9px; color:#cfc6dd; font-size:12.5px; max-width:100ch; }
+  .miss { color:var(--bad); }
 </style>
 </head>
 <body>
 <header>
-  <h1>Living Portraits — Video Knowledge Graph</h1>
-  <p>Nodes are <b>frames</b> (a pose, carrying its still + the SDXL <i>gen prompt</i>). Edges are <b>video clips</b>: gold/teal <b>self-loops</b> are idles on a pose; <b>red</b> edges are <b>pose transitions</b> tying one frame to a different one, each carrying the MJ <i>motion prompt</i>. The player random-walks this graph by day. A separate <b>circadian</b> layer (from <code>bedtime_routine.json</code>) triggers the <b style="color:#b7a4ff">🌙 bedtime routine</b> on the wall-clock — those nodes + chain edges are <b style="color:#b7a4ff">indigo</b>; click a 🌙 node for its trigger window + dwell. Click any node or edge to inspect prompts + play the clips.</p>
+  <h1>Living Portraits <small>context graph</small></h1>
+  <div id="chips"></div>
+  <nav>
+    <button data-tab="graph" class="on">Graph</button>
+    <button data-tab="memory">Memory</button>
+    <button data-tab="codemap">Codebase map</button>
+    <button data-tab="honesty">What this does not know</button>
+  </nav>
 </header>
-<div class="wrap">
-  <div id="netwrap">
-    <div id="net"></div>
-    <div id="legend">
-      <span class="t">characters</span>
-      <div class="row"><span class="dot" style="color:#d4a85a;background:#d4a85a"></span> Phineas — faded tragedian</div>
-      <div class="row"><span class="dot" style="color:#78ccc2;background:#78ccc2"></span> Seraphina</div>
-      <div class="row"><span class="dot" style="color:#ff3df0;background:#ff3df0"></span> MAXX-9 — cyborg</div>
-      <hr>
-      <div class="row"><span class="ln solid"></span> idle loop (self)</div>
-      <div class="row"><span class="ln dash"></span> transition (pose → pose)</div>
-      <hr>
-      <div class="row"><span class="dot" style="color:#8b6cff;background:#8b6cff"></span> 🌙 bedtime node / chain</div>
-      <div class="row" style="color:#9a90ad;font-size:11px">fires on a clock — click a 🌙 node</div>
-      <button id="relayout">⟳ re-layout</button>
+
+<main>
+  <section class="tab on" id="tab-graph">
+    <div id="rail">
+      <div class="lbl">lens</div>
+      <div id="lenses"></div>
+      <div class="lbl">as the system learned it</div>
+      <input type="range" id="scrub" min="0" max="1000" value="1000">
+      <div class="row" style="justify-content:space-between">
+        <span class="hint" id="scrublabel">—</span>
+        <button class="btn" id="play">▶ grow</button>
+      </div>
+      <div class="lbl">characters</div>
+      <div id="charboxes"></div>
+      <div class="lbl">edges</div>
+      <label class="ck"><input type="checkbox" id="showidles"> show idle self-loops</label>
+      <label class="ck"><input type="checkbox" id="showlabels" checked> edge labels</label>
+      <div class="lbl">layout</div>
+      <button class="btn" id="relayout" style="width:100%">⟳ re-layout</button>
+      <div class="hint" style="margin-top:10px" id="counts"></div>
     </div>
-  </div>
-  <div id="detail"><p class="hint">Loading graph…</p></div>
-</div>
+    <div id="center">
+      <div id="netwrap">
+        <div id="net"></div>
+        <div id="lensnote"></div>
+        <div id="legend"></div>
+      </div>
+      <div id="now"></div>
+    </div>
+    <div id="detail"><p class="hint">Loading the context view…</p></div>
+  </section>
+
+  <section class="tab" id="tab-memory"><div class="sheet" id="memsheet"></div></section>
+  <section class="tab" id="tab-codemap"><div class="sheet" id="mapsheet"></div></section>
+  <section class="tab" id="tab-honesty"><div class="sheet" id="honsheet"></div></section>
+</main>
+
 <script>
+"use strict";
 const PALETTE = { phineas:"#d4a85a", seraphina:"#78ccc2", maxx:"#ff3df0" };
-const BT_COL = "#8b6cff";                 // indigo = the bedtime / circadian layer
-const detail = document.getElementById('detail');
-// circadian (trigger) layer, populated from bedtime_routine.json after fetch:
-let CIRC = {};        // "<char>:<pose>" -> {window, dwell, beat, idles, nightOnly, isSleep, metaphor}
-let WINDOWS = {};     // char -> {bed, wake, metaphor}
-let CHAINS = {};      // char -> ordered pose chain
-let BTLABELS = {};    // edge label -> char (i.e. this edge is part of a bedtime routine)
-function fmtH(h){ return String(((+h%24)+24)%24).padStart(2,'0')+':00'; }
+const BT = "#8b6cff";
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[<>&]/g, c => ({ "<":"&lt;", ">":"&gt;", "&":"&amp;" }[c]));
+const fmtH = h => String(((+h % 24) + 24) % 24).padStart(2, "0") + ":00";
+const fmtN = n => (n == null ? "—" : Number(n).toLocaleString());
+const day = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : "—";
+const ago = ts => {
+  if (!ts) return "—";
+  const s = Date.now() / 1000 - ts;
+  if (s < 90) return Math.round(s) + "s ago";
+  if (s < 5400) return Math.round(s / 60) + "m ago";
+  if (s < 172800) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+};
+const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+const mix = (c1, c2, t) => {           // "#rrggbb" blend
+  const p = c => [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16));
+  const [a, b] = [p(c1), p(c2)];
+  return "#" + a.map((v, i) => Math.round(lerp(v, b[i], t)).toString(16).padStart(2, "0")).join("");
+};
 
-function nodeDetail(id, n) {
-  const circ = CIRC[id];
-  let circHtml = '';
-  if (circ) {
-    const dwell = circ.isSleep ? 'dwells here until wake (the long overnight rest)'
-                               : `dwell ${circ.dwell} idle-loop(s), then advance along the chain`;
-    circHtml = `<div class="lbl">⏰ circadian trigger</div><div class="prompt">fires during the night window <b>${circ.window}</b>
-beat: ${circ.beat}${circ.nightOnly?'  (night-only opener)':''}
-${dwell}
-idles here: ${circ.idles.join(', ')}</div>`;
-  }
-  detail.innerHTML = `<h2>${(circ?'🌙 ':'')+id}</h2>
-    <span class="tag">character: ${n.character}</span><span class="tag">pose: ${n.pose}</span>${circ?`<span class="tag" style="border-color:${BT_COL};color:#b7a4ff">bedtime</span>`:''}
-    ${circHtml}
-    <div class="lbl">anchor image</div><img src="${n.image}" alt="${id}" onerror="this.style.opacity=.3">
-    <div class="lbl">gen prompt (semantic metadata)</div><div class="prompt">${(n.gen_prompt||'').replace(/</g,'&lt;')}</div>`;
-}
-function edgeDetail(group) {
-  const vs = group.variants.sort((a,b)=>a.variant-b.variant);
-  const prov = group.mj_job ? `job ${group.mj_job.slice(0,8)}`
-             : (group.label==='sitdown' ? 'derived (reverse of stand-up)' : '');
-  const kindTag = group.kind==='transition'
-    ? `<span class="tag" style="border-color:#e86f4e;color:#e86f4e">transition</span>`
-    : `<span class="tag">idle loop</span>`;
-  detail.innerHTML = `<h2>${group.character} · ${group.label}</h2>
-    ${kindTag}<span class="tag">${group.from.split(':')[1]} → ${group.to.split(':')[1]}</span><span class="tag">${vs.length} variants</span>${prov?`<span class="tag">${prov}</span>`:''}
-    <div class="lbl">motion prompt (semantic metadata)</div><div class="prompt">${(group.motion_prompt||'').replace(/</g,'&lt;')}</div>
-    <div class="lbl">clips${group.kind==='transition'?' (plays once)':' (looping)'}</div>
-    <div class="grid">${vs.map(e=>`<figure><img src="${e.gif}" loading="lazy" onerror="this.style.opacity=.2"><figcaption>v${e.variant}</figcaption></figure>`).join('')}</div>`;
-}
+/* ---------------------------------------------------------------- the lenses.
+   One graph, six readings of it. Each names what it colours, and what it cannot show. */
+const LENSES = [
+  { id:"structure", name:"Structure",
+    blurb:"the asset manifest",
+    note:"<b>Poses and clips</b> — the graph as the generator made it. Transitions are arrows; idle loops "+
+         "live on their pose. Indigo is the <b>bedtime chain</b>, which the daytime walk is masked out of. "+
+         "This is the whole of what the May viewer could see." },
+  { id:"lived", name:"Lived",
+    blurb:"valid time · what was stood in",
+    note:"<b>Where a body has actually been.</b> Node heat is visits, node size is dwell, edge weight is "+
+         "clips that have <i>rolled</i> rather than merely existing. Grey rings are poses never once "+
+         "stood in. Written by the walker (<code>runtime/lived.py</code>), never by the generator." },
+  { id:"provenance", name:"Provenance",
+    blurb:"transaction time · when it was learned",
+    note:"<b>When the system learned each thing exists</b>, derived from artifact mtime so it survives the "+
+         "20-minute rebuild. Pull the scrubber to replay the graph accreting. Bright is newest. "+
+         "Nodes with no artifact carry no stamp and stay grey — never an invented date." },
+  { id:"manner", name:"Manner",
+    blurb:"typed edges · derived from prose",
+    note:"<b>Manner and valence read out of each clip's own motion prompt</b> — ten manners, "+
+         "green rising, red collapsing. Edges the lexicon cannot read are <b>dotted grey and counted "+
+         "untyped</b>, not quietly called neutral." },
+  { id:"frontier", name:"Frontier",
+    blurb:"reachable but never entered",
+    note:"<b>The version of itself it has never been.</b> Cyan poses are reachable from where the body "+
+         "stands right now and have never once been visited; the number is how many steps away. "+
+         "Everything the character has lived in is dimmed." },
+  { id:"decision", name:"Decision",
+    blurb:"why the next clip",
+    note:"<b>The live weighting on every exit</b>, from the same <code>policy.weigh</code> call the walker "+
+         "makes: novelty, anti-reverse forgiven by dwell, the soft goal pull, mood band, escape velocity, "+
+         "manner last. White ring is here, gold ring is the goal, the lit path is the route between them. "+
+         "A <b style='color:#8b6cff'>sleeping</b> character is drawn on its bedtime chain instead — at night "+
+         "circadian forces the pick and none of this is consulted." },
+];
+const LENS_OF = { "Structure lens":"structure", "Lived lens":"lived", "Provenance lens + scrubber":"provenance",
+  "Provenance lens (new nodes)":"provenance", "Manner lens":"manner", "Frontier lens / goal path":"frontier",
+  "Decision lens + now strip":"decision", "Structure lens (bedtime)":"structure" };
 
+const S = { lens:"structure", chars:new Set(), idles:false, labels:true, cut:Infinity, V:null,
+            nodes:null, edges:null, net:null, groups:[], nodeIdx:{}, tmin:0, tmax:0, sel:null };
+
+/* ---------------------------------------------------------------- load */
 Promise.all([
-  fetch('data/clips/video_graph.json').then(r=>r.json()),
-  fetch('prompts/bedtime_routine.json').then(r=>r.json()).catch(()=>({characters:{}}))
-]).then(([g, bt]) => {
-  // ---- circadian (trigger) layer: derive the 'when' from bedtime_routine.json ----
-  Object.entries(bt.characters||{}).forEach(([cid,c]) => {
-    const cc = c.circadian||{}; const win = fmtH(cc.bedtime_hour)+'–'+fmtH(cc.wake_hour);
-    WINDOWS[cid] = { bed:cc.bedtime_hour, wake:cc.wake_hour, metaphor:c.metaphor };
-    CHAINS[cid] = [c.hub_pose];
-    (c.routine||[]).forEach(b => {
-      if (b.kind==='transition') { BTLABELS[b.label]=cid; BTLABELS[b.reverse_label]=cid; CHAINS[cid].push(b.to); }
+  fetch("data/graph/context_view.json").then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
+  fetch("prompts/bedtime_routine.json").then(r => r.json()).catch(() => ({ characters:{} })),
+]).then(([V, bt]) => { S.V = V; S.bt = bt; boot(); })
+  .catch(e => {
+    $("#detail").innerHTML = `<p class="hint"><b>No context view.</b><br>${esc(e)}<br><br>
+      This viewer reads <code>data/graph/context_view.json</code>, which joins the graph with the lived
+      record, provenance, typing, memory and the live decision surface. Build it on the host that holds the
+      data:<div class="prompt">python scripts/export_context_view.py</div>
+      then serve the project root (<code>python -m http.server</code>) and reload.</p>`;
+  });
+
+function boot() {
+  const V = S.V;
+  buildCircadian();
+  buildGraph();
+  V.characters.forEach(c => S.chars.add(c));
+  // Chrome restores form values when a URL is revisited in the same tab, which silently
+  // reopened this viewer with the scrubber part-way back in time and two thirds of the graph
+  // missing. The default is the whole graph; state the default rather than inherit one.
+  $("#scrub").value = 1000; S.cut = Infinity;
+  renderRail(); renderChips(); renderLegend();
+  renderNow(); renderMemory(); renderCodemap(); renderHonesty();
+  setLens("structure");
+  $("#detail").innerHTML = introCard();
+  pollLive();
+  setInterval(pollLive, 8000);
+}
+
+/* the bedtime layer still comes from the routine spec: it is the "when", and it is authored,
+   not derived. Same read the May viewer did. */
+function buildCircadian() {
+  S.CIRC = {}; S.WIN = {}; S.CHAIN = {}; S.BTL = {};
+  Object.entries(S.bt.characters || {}).forEach(([cid, c]) => {
+    const cc = c.circadian || {}, win = fmtH(cc.bedtime_hour) + "–" + fmtH(cc.wake_hour);
+    S.WIN[cid] = { bed:cc.bedtime_hour, wake:cc.wake_hour, metaphor:c.metaphor };
+    S.CHAIN[cid] = [c.hub_pose];
+    (c.routine || []).forEach(b => {
+      if (b.kind === "transition") { S.BTL[b.label] = cid; S.BTL[b.reverse_label] = cid; S.CHAIN[cid].push(b.to); }
       else {
-        CIRC[cid+':'+b.at] = { window:win, dwell:(b.dwell!=null?b.dwell:b.dwell_loops), beat:b.beat,
-          idles:(b.idles||[]).map(i=>i.id), nightOnly:!!b.night_only, isSleep:(b.dwell==='until_wake'), metaphor:c.metaphor };
-        (b.idles||[]).forEach(i=>{ BTLABELS[i.id]=cid; });
+        S.CIRC[cid + ":" + b.at] = { window:win, dwell:(b.dwell != null ? b.dwell : b.dwell_loops), beat:b.beat,
+          idles:(b.idles || []).map(i => i.id), isSleep:(b.dwell === "until_wake") };
+        (b.idles || []).forEach(i => { S.BTL[i.id] = cid; });
       }
     });
   });
-  const nodes = new vis.DataSet(Object.entries(g.nodes).map(([id,n]) => {
-    const c = PALETTE[n.character] || '#8a8a8a';
-    const isBT = !!CIRC[id];
-    return { id, label:(isBT?'🌙 ':'')+id.split(':')[0]+'\n'+id.split(':')[1], shape:'circularImage', image:n.image,
-      size:54, mass:5, borderWidth:isBT?6:4, color:{border:isBT?BT_COL:c, highlight:{border:'#ffffff'}},
-      font:{color:'#e9e4f0', size:13, multi:false, strokeWidth:3, strokeColor:'#0d0b10'},
-      shadow:{enabled:true, color:isBT?BT_COL:c, size:26, x:0, y:0}, _n:n };
+}
+
+/* group clips by (from,label) so one arrow is one behaviour carrying its variants — but the
+   context columns (plays, created, manner) are aggregated across the variants, because a
+   variant is a rendering of the same intent, not a different one. */
+function buildGraph() {
+  const V = S.V, g = {};
+  V.edges.forEach(e => {
+    const k = e.from + "|" + e.label;
+    if (!g[k]) g[k] = { ...e, variants:[], plays:0, created:null, play_last:null };
+    const G = g[k];
+    G.variants.push(e);
+    G.plays += (e.plays || 0);
+    if (e.created) G.created = G.created == null ? e.created : Math.min(G.created, e.created);
+    if (e.play_last) G.play_last = Math.max(G.play_last || 0, e.play_last);
+    if (e.manner && !G.manner) { G.manner = e.manner; G.valence = e.valence; }
+  });
+  S.groups = Object.values(g);
+
+  const stamps = [];
+  Object.values(V.nodes).forEach(n => { if (n.created) stamps.push(n.created); });
+  S.groups.forEach(e => { if (e.created) stamps.push(e.created); });
+  S.tmin = Math.min(...stamps); S.tmax = Math.max(...stamps);
+
+  S.nodes = new vis.DataSet(Object.entries(V.nodes).map(([id, n]) => {
+    S.nodeIdx[id] = n;
+    return { id, label:id.split(":")[1], shape:"dot", size:12, _n:n,
+      font:{ color:"#cfc6dd", size:11, strokeWidth:3, strokeColor:"#0d0b10" } };
   }));
-  // group edges by from|label -> one labelled edge per behaviour, carrying its variants
-  const groups = {};
-  g.edges.forEach(e => { const k=e.from+'|'+e.label;
-    if(!groups[k]) groups[k]={...e, variants:[]}; groups[k].variants.push(e); });
-  const selfN = {};   // fan self-loops out around each node so they don't stack
-  const edges = new vis.DataSet(Object.values(groups).map((grp,i) => {
-    const t = grp.kind==='transition';
-    const isBT = !!BTLABELS[grp.label];               // part of a bedtime routine?
-    const c = PALETTE[grp.character] || '#8a8a8a';
-    const col = isBT ? BT_COL : (t?'#ff5a3c':c);
-    const e = { id:'E'+i, from:grp.from, to:grp.to, label:grp.label, _g:grp,
-      color:{color: col, highlight:'#ffffff', hover:'#ffffff'},
-      width: t?3.5:1.6, dashes: (t||isBT)?[10,7]:false,
-      font:{color: isBT?'#b7a4ff':(t?'#ff7a5c':c), size: t?13:11, strokeWidth:0, background:'#0d0b10'},
-      arrows: t?{to:{enabled:true, scaleFactor:1.15}} : {to:{enabled:true, scaleFactor:0.7}},
-      smooth:{type:'curvedCW', roundness:(t?0.28:0.0)+0.12*(i%4)} };
-    if (grp.from === grp.to) {          // idle self-loop -> big, fanned around the node
-      const k = (selfN[grp.from] = (selfN[grp.from]||0)); selfN[grp.from]++;
-      e.selfReference = { size: 62, angle: k*0.85 + 0.3, renderBehindTheNode:false };
+  const selfN = {};
+  S.edges = new vis.DataSet(S.groups.map((grp, i) => {
+    const e = { id:"E" + i, from:grp.from, to:grp.to, label:grp.label, _g:grp,
+      smooth:{ type:"curvedCW", roundness:(grp.kind === "transition" ? 0.24 : 0) + 0.09 * (i % 4) },
+      font:{ size:10, strokeWidth:0, background:"#0d0b10" } };
+    if (grp.from === grp.to) {
+      const k = (selfN[grp.from] = selfN[grp.from] || 0); selfN[grp.from]++;
+      e.selfReference = { size:34, angle:k * 0.8 + 0.3, renderBehindTheNode:false };
     }
     return e;
   }));
-  const net = new vis.Network(document.getElementById('net'), {nodes,edges}, {
-    physics:{ enabled:true, stabilization:{iterations:320},
-      barnesHut:{ gravitationalConstant:-14000, centralGravity:0.18, springLength:280,
-        springConstant:0.035, damping:0.55, avoidOverlap:1 } },
-    nodes:{ shadow:true },
-    interaction:{ hover:true, hoverConnectedEdges:true, dragNodes:true, tooltipDelay:120 }
+
+  S.net = new vis.Network($("#net"), { nodes:S.nodes, edges:S.edges }, {
+    physics:{ enabled:true, stabilization:{ iterations:260 },
+      barnesHut:{ gravitationalConstant:-11000, centralGravity:0.22, springLength:150,
+        springConstant:0.035, damping:0.6, avoidOverlap:0.6 } },
+    interaction:{ hover:true, dragNodes:true, tooltipDelay:150 },
   });
-  // strong repulsion settles a clean spread, THEN freeze physics so dragging a node
-  // never pulls its neighbours into a mesh. The re-layout button re-runs it on demand.
-  net.once('stabilizationIterationsDone', () => net.setOptions({physics:false}));
-  document.getElementById('relayout').onclick = () => {
-    net.setOptions({physics:true}); net.stabilize();
-    net.once('stabilizationIterationsDone', () => net.setOptions({physics:false}));
+  S.net.once("stabilizationIterationsDone", () => S.net.setOptions({ physics:false }));
+  $("#relayout").onclick = () => {
+    S.net.setOptions({ physics:true }); S.net.stabilize();
+    S.net.once("stabilizationIterationsDone", () => S.net.setOptions({ physics:false }));
   };
-  const gv = Object.values(groups);
-  const nTrans = gv.filter(x=>x.kind==='transition').length;
-  const nChars = new Set(Object.values(g.nodes).map(n=>n.character)).size;
-  const sched = Object.entries(WINDOWS).map(([cid,w]) =>
-    `<b style="color:${PALETTE[cid]||'#ccc'}">${cid}</b> <span style="color:#9a90ad">(${w.metaphor})</span> — asleep <b style="color:#b7a4ff">${fmtH(w.bed)}–${fmtH(w.wake)}</b><br><span style="color:#9a90ad;font-size:11.5px">${(CHAINS[cid]||[]).join(' → ')}</span>`
-  ).join('<br><br>');
-  detail.innerHTML = `<div class="lbl">⏰ circadian schedule — the "when"</div>
-    <div class="prompt">${sched||'(bedtime_routine.json not loaded — serve from project root)'}</div>
-    <p class="hint">🌙 indigo nodes &amp; chain edges are the bedtime routine; everything else is the daytime random walk. Click a 🌙 node for its trigger window + dwell, or any edge to read its motion prompt.<br><br>${nodes.length} frames · ${g.edges.length} clips · ${gv.length-nTrans} idle + ${nTrans} transition · ${nChars} characters. Drag nodes freely; physics freezes after layout.</p>`;
-  net.on('click', p => {
-    if(p.nodes.length){ const id=p.nodes[0]; nodeDetail(id, nodes.get(id)._n); }
-    else if(p.edges.length){ const e=edges.get(p.edges[0]); if(e&&e._g) edgeDetail(e._g); }
+  S.net.on("click", p => {
+    if (p.nodes.length) { S.sel = { kind:"node", id:p.nodes[0] }; nodeCard(p.nodes[0]); }
+    else if (p.edges.length) { const e = S.edges.get(p.edges[0]); if (e && e._g) edgeCard(e._g); }
   });
-}).catch(e => { detail.innerHTML = `<p class="hint">Failed to load data/clips/video_graph.json — serve from the project root (python -m http.server).<br>${e}</p>`; });
+}
+
+/* ---------------------------------------------------------------- rail + chips */
+function renderRail() {
+  $("#lenses").innerHTML = LENSES.map(l =>
+    `<button class="lens" data-lens="${l.id}"><b>${l.name}</b><i>${l.blurb}</i></button>`).join("");
+  $("#lenses").querySelectorAll(".lens").forEach(b => b.onclick = () => setLens(b.dataset.lens));
+  $("#charboxes").innerHTML = S.V.characters.map(c => {
+    const live = S.V.live_characters.includes(c);
+    return `<label class="ck"><input type="checkbox" data-char="${c}" checked>
+      <span class="dot" style="color:${PALETTE[c] || "#888"};background:${PALETTE[c] || "#888"}"></span>
+      ${c}${live ? "" : ' <span class="hint">(off-panel)</span>'}</label>`;
+  }).join("");
+  $("#charboxes").querySelectorAll("input").forEach(i => i.onchange = () => {
+    i.checked ? S.chars.add(i.dataset.char) : S.chars.delete(i.dataset.char); applyLens();
+  });
+  $("#showidles").onchange = e => { S.idles = e.target.checked; applyLens(); };
+  $("#showlabels").onchange = e => { S.labels = e.target.checked; applyLens(); };
+  $("#scrub").oninput = e => {
+    const t = +e.target.value / 1000;
+    S.cut = t >= 1 ? Infinity : S.tmin + (S.tmax - S.tmin) * t;
+    applyLens();
+  };
+  $("#play").onclick = grow;
+  document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + b.dataset.tab));
+  });
+}
+
+function grow() {
+  const el = $("#scrub"); let v = 0; el.value = 0;
+  const step = () => {
+    v += 12; el.value = v;
+    el.dispatchEvent(new Event("input"));
+    if (v < 1000) requestAnimationFrame(() => setTimeout(step, 22));
+  };
+  step();
+}
+
+function renderChips() {
+  const V = S.V, cov = V.meta.style_coverage, st = V.meta.stamped;
+  const plays = Object.values(V.lived).reduce((a, l) => a + (l.plays || 0), 0);
+  const ent = Object.values(V.memory).reduce((a, m) => a + (m.entries || 0), 0);
+  const days = Math.max(...Object.values(V.memory).map(m => m.days || 0));
+  const age = (Date.now() / 1000 - V.generated_at) / 60;
+  $("#chips").innerHTML = [
+    `<b>${fmtN(Object.keys(V.nodes).length)}</b> poses`,
+    `<b>${fmtN(V.edges.length)}</b> clips`,
+    `<b>${fmtN(st.edges_created)}</b> stamped`,
+    `<b>${cov.typed}</b>/${cov.n} typed`,
+    `<b>${fmtN(plays)}</b> plays`,
+    `<b>${fmtN(ent)}</b> memories · ${days}d`,
+  ].map(t => `<span class="chip">${t}</span>`).join("") +
+  `<span class="chip ${age > 30 ? "warn" : ""}">view built ${ago(V.generated_at)}${age > 30 ? " · re-run export_context_view.py" : ""}</span>`;
+}
+
+function renderLegend() {
+  $("#legend").innerHTML = S.V.characters.map(c =>
+    `<div class="row"><span class="dot" style="color:${PALETTE[c] || "#888"};background:${PALETTE[c] || "#888"}"></span>${c}</div>`).join("") +
+    `<div class="row" style="margin-top:7px"><span class="ln dash" style="border-color:#ff5a3c"></span>transition</div>
+     <div class="row"><span class="ln" style="border-color:#8a7fa0"></span>idle loop</div>
+     <div class="row"><span class="dot" style="color:${BT};background:${BT}"></span>bedtime chain</div>`;
+}
+
+/* ---------------------------------------------------------------- the lenses, applied */
+function setLens(id) {
+  S.lens = id;
+  document.querySelectorAll(".lens").forEach(b => b.classList.toggle("on", b.dataset.lens === id));
+  const l = LENSES.find(x => x.id === id);
+  $("#lensnote").innerHTML = l.note;
+  applyLens();
+}
+
+function heat(v, max) { return mix("#3a3050", "#ff8a3c", max ? Math.log1p(v) / Math.log1p(max) : 0); }
+
+function applyLens() {
+  const V = S.V, lens = S.lens;
+  const now = V.now || {};
+  const maxVisits = Math.max(1, ...Object.values(V.nodes).map(n => n.visits || 0));
+  const maxDwell = Math.max(1, ...Object.values(V.nodes).map(n => n.dwell || 0));
+  const maxPlays = Math.max(1, ...S.groups.map(g => g.plays || 0));
+  const here = {}, goal = {}, pathE = new Set(), decide = {}, asleep = new Set();
+  Object.entries(now).forEach(([c, n]) => {
+    if (n.node) here[n.node] = c;
+    if (n.goal) goal[n.goal] = c;
+    (n.path || []).forEach((p, i, arr) => { if (i) pathE.add(arr[i - 1] + "|" + p); });
+    // a sleeping character's exits are weighed by nothing: circadian returns a forced edge
+    // before policy is ever called. Drawing a softmax over them would be a picture of a
+    // decision that is not being made.
+    if ((n.decision || {}).consulted === false) asleep.add(c);
+    else ((n.decision || {}).rows || []).forEach(r => decide[r.id] = r);
+  });
+  const frontier = {};
+  Object.values(now).forEach(n => (n.frontier || []).forEach(f => frontier[f.node] = f.hops));
+
+  const nUp = [], nodeVis = {};
+  Object.entries(V.nodes).forEach(([id, n]) => {
+    const c = PALETTE[n.character] || "#8a8a8a";
+    const hidden = !S.chars.has(n.character) || (n.created && n.created > S.cut);
+    nodeVis[id] = !hidden;
+    let color = c, border = c, size = 12, label = id.split(":")[1], opacity = 1;
+    if (lens === "structure") {
+      if (S.CIRC[id]) { color = BT; border = BT; label = "🌙 " + label; }
+    } else if (lens === "lived") {
+      const v = n.visits || 0;
+      color = v ? heat(v, maxVisits) : "#241f30";
+      border = v ? color : "#4a4060";
+      size = 8 + 22 * Math.sqrt((n.dwell || 0) / maxDwell);
+      if (!v) label = label + " ·never";
+    } else if (lens === "provenance") {
+      if (!n.created) { color = "#2a2438"; border = "#4a4060"; }
+      else { const t = (n.created - S.tmin) / Math.max(1, S.tmax - S.tmin); color = border = mix("#3b2f6e", "#8fe3d0", t); }
+    } else if (lens === "manner") {
+      color = "#2a2438"; border = "#4a4060"; size = 9;
+    } else if (lens === "frontier") {
+      if (frontier[id] != null) { color = "#0f3b40"; border = "#5ce1e6"; size = 18; label = label + " ·" + frontier[id] + " steps"; }
+      else { color = "#241f30"; border = "#332c44"; size = 9; opacity = .55; }
+    } else if (lens === "decision") {
+      color = "#241f30"; border = "#332c44"; size = 9; opacity = .5;
+    }
+    if (here[id]) { border = "#ffffff"; size = Math.max(size, 20); label = "▶ " + label; opacity = 1; }
+    else if (goal[id]) { border = "#ffd479"; size = Math.max(size, 18); label = "◎ " + label; opacity = 1; }
+    nUp.push({ id, hidden, size, color:{ background:color, border, highlight:{ background:color, border:"#fff" } },
+      borderWidth:(here[id] || goal[id]) ? 4 : 2, label, opacity,
+      font:{ color:(here[id] || goal[id]) ? "#fff" : "#cfc6dd", size:(here[id] || goal[id]) ? 13 : 11,
+             strokeWidth:3, strokeColor:"#0d0b10" } });
+  });
+  S.nodes.update(nUp);
+
+  const eUp = [];
+  S.groups.forEach((g, i) => {
+    const id = "E" + i;
+    const isIdle = g.kind !== "transition";
+    const isBT = !!S.BTL[g.label];
+    let hidden = !S.chars.has(g.character) || (g.created && g.created > S.cut)
+              || (isIdle && !S.idles) || !nodeVis[g.from] || !nodeVis[g.to];
+    let color = isBT ? BT : (isIdle ? (PALETTE[g.character] || "#888") : "#ff5a3c");
+    let width = isIdle ? 1.2 : 2.6, dashes = isIdle ? false : [9, 6], label = S.labels ? g.label : "";
+    if (lens === "lived") {
+      const p = g.plays || 0;
+      color = p ? mix("#4a3f5e", "#ffd479", Math.log1p(p) / Math.log1p(maxPlays)) : "#2c2540";
+      width = p ? 1 + 5 * (Math.log1p(p) / Math.log1p(maxPlays)) : 0.8;
+      dashes = p ? false : [2, 6];
+      label = S.labels ? (p ? g.label + " ×" + p : g.label + " ·unplayed") : "";
+    } else if (lens === "provenance") {
+      if (!g.created) { color = "#2c2540"; }
+      else { const t = (g.created - S.tmin) / Math.max(1, S.tmax - S.tmin); color = mix("#3b2f6e", "#8fe3d0", t); }
+      width = 1.8; dashes = false;
+    } else if (lens === "manner") {
+      if (g.manner) {
+        color = g.valence >= 0 ? mix("#8a8f5a", "#6fd08c", Math.min(1, g.valence * 1.6))
+                               : mix("#8a6a5a", "#e8624e", Math.min(1, -g.valence * 1.6));
+        width = 1.4 + 3.4 * Math.abs(g.valence || 0);
+        dashes = false;
+        label = S.labels ? g.manner : "";
+      } else { color = "#3a3448"; width = 1; dashes = [2, 5]; label = S.labels ? "untyped" : ""; }
+    } else if (lens === "frontier") {
+      color = "#2f2a3d"; width = 1; dashes = false; label = "";
+      if (frontier[g.to] != null) { color = "#3ea0a6"; width = 2.4; }
+    } else if (lens === "decision") {
+      const r = decide[g.variants[0] && g.variants[0].id] ||
+                g.variants.map(v => decide[v.id]).find(Boolean);
+      const onPath = pathE.has(g.from + "|" + g.to);
+      if (r) { color = "#b79bff"; width = 1.5 + 16 * r.share; label = Math.round(r.share * 100) + "%  " + g.label; hidden = hidden && false; }
+      else if (asleep.has(g.character) && S.BTL[g.label]) { color = BT; width = 2.4; dashes = [8, 5]; label = S.labels ? "🌙 " + g.label : ""; }
+      else if (onPath) { color = "#ffd479"; width = 3; dashes = [8, 5]; label = S.labels ? g.label : ""; }
+      else { color = "#2a2438"; width = 0.8; label = ""; }
+      if (r && isIdle) hidden = !S.chars.has(g.character);   // an idle IS a candidate here
+    }
+    eUp.push({ id, hidden, label, width, dashes,
+      color:{ color, highlight:"#ffffff", hover:"#ffffff", opacity:hidden ? 0 : 1 },
+      font:{ color:color, size:10, strokeWidth:0, background:"#0d0b10" },
+      arrows:isIdle ? { to:{ enabled:true, scaleFactor:0.5 } } : { to:{ enabled:true, scaleFactor:1 } } });
+  });
+  S.edges.update(eUp);
+
+  const vn = nUp.filter(n => !n.hidden).length, ve = eUp.filter(e => !e.hidden).length;
+  $("#counts").innerHTML = `${vn} poses · ${ve} clip groups visible` +
+    (S.idles ? "" : `<br><span style="color:var(--dim)">idle self-loops hidden</span>`);
+  $("#scrublabel").textContent = S.cut === Infinity ? "everything to " + day(S.tmax) : "up to " + day(S.cut);
+}
+
+/* ---------------------------------------------------------------- inspector */
+function introCard() {
+  const V = S.V;
+  return `<h2>One graph, six readings</h2>
+    <p class="hint">This is the same 266 poses and 1,558 clips the May viewer drew — joined, now, with what
+    the characters have actually <b>lived</b>, when the system <b>learned</b> each thing exists, what each
+    clip's prose says about <b>how</b> it moves, what they <b>remember</b>, and the live weight on every exit
+    from where each body is standing this second.</p>
+    <div class="kv">
+      <b>built</b><span>${esc(V.generated_iso)} on ${esc(V.host)}</span>
+      <b>graph</b><span>${esc(V.meta.graph_schema)}</span>
+      <b>on panel</b><span>${V.live_characters.map(c => esc(c)).join(", ")}</span>
+      <b>off panel</b><span>${V.characters.filter(c => !V.live_characters.includes(c)).map(esc).join(", ") || "—"}</span>
+    </div>
+    <p class="hint">Click any pose or clip. Pull the scrubber to watch the graph accrete.
+    The strip below is live: it re-reads the walker's pose file every eight seconds.</p>`;
+}
+
+function nodeCard(id) {
+  const n = S.nodeIdx[id], V = S.V, circ = S.CIRC[id];
+  const now = Object.entries(V.now).find(([, x]) => x.node === id);
+  const fr = Object.values(V.now).flatMap(x => x.frontier || []).find(f => f.node === id);
+  const moods = Object.entries(n.moods || {}).sort((a, b) => b[1] - a[1]);
+  const exits = S.groups.filter(g => g.from === id && g.kind === "transition");
+  const idles = S.groups.filter(g => g.from === id && g.kind !== "transition");
+  $("#detail").innerHTML = `<h2>${circ ? "🌙 " : ""}${esc(id)}</h2>
+    <span class="tag" style="border-color:${PALETTE[n.character] || "#888"}">${esc(n.character)}</span>
+    ${now ? `<span class="tag" style="border-color:#fff;color:#fff">standing here now</span>` : ""}
+    ${fr ? `<span class="tag" style="border-color:#5ce1e6;color:#5ce1e6">frontier · ${fr.hops} steps</span>` : ""}
+    ${n.visits ? "" : `<span class="tag" style="border-color:#4a4060">never stood in</span>`}
+    <div class="lbl">lived · valid time</div>
+    <div class="kv">
+      <b>visits</b><span>${fmtN(n.visits)}</span>
+      <b>dwell</b><span>${fmtN(n.dwell)} idle units</span>
+      <b>first stood</b><span>${n.first ? day(n.first) + " (" + ago(n.first) + ")" : "—" + (n.backfilled ? " · backfilled, log carries no date" : "")}</span>
+      <b>last stood</b><span>${n.last ? ago(n.last) : "—"}</span>
+      <b>moods brought</b><span>${moods.length ? moods.map(m => esc(m[0]) + " ×" + m[1]).join(", ") : "—"}</span>
+      <b>exits</b><span>${exits.length} transition${exits.length === 1 ? "" : "s"} · ${idles.length} idle${idles.length === 1 ? "" : "s"}${exits.length <= 1 ? ' <span style="color:#e0a860">(one-exit pose)</span>' : ""}</span>
+    </div>
+    <div class="lbl">provenance · transaction time</div>
+    <div class="kv"><b>learned</b><span>${n.created ? day(n.created) + " (" + ago(n.created) + ")" : "no artifact on disk — no stamp"}</span>
+      <b>still</b><span><code>${esc(n.image)}</code></span></div>
+    ${n.said ? `<div class="lbl">last said standing here${n.said_n ? " · " + fmtN(n.said_n) + " entries from this pose" : ""}</div>
+      <div class="prompt">${esc(n.said)}${n.said_mood ? `\n\n— mood: ${esc(n.said_mood)}, ${ago(n.said_ts)}` : ""}</div>` : ""}
+    ${circ ? `<div class="lbl">circadian trigger</div><div class="prompt">night window ${esc(circ.window)}
+beat: ${esc(circ.beat)}
+${circ.isSleep ? "dwells here until wake" : "dwell " + esc(circ.dwell) + " idle loop(s), then advance"}</div>` : ""}
+    <div class="lbl">still</div><img class="still" src="${esc(n.image)}" loading="lazy" onerror="this.style.opacity=.25">
+    <div class="lbl">gen prompt</div><div class="prompt">${esc(n.gen_prompt)}</div>`;
+}
+
+function edgeCard(g) {
+  const vs = g.variants.slice().sort((a, b) => a.variant - b.variant);
+  const dec = Object.entries(S.V.now).map(([c, n]) =>
+    ((n.decision || {}).rows || []).filter(r => vs.some(v => v.id === r.id)).map(r => ({ c, r }))).flat();
+  $("#detail").innerHTML = `<h2>${esc(g.character)} · ${esc(g.label)}</h2>
+    <span class="tag" style="border-color:${g.kind === "transition" ? "#e86f4e" : "#4a4060"}">${esc(g.kind)}</span>
+    <span class="tag">${esc(g.from.split(":")[1])} → ${esc(g.to.split(":")[1])}</span>
+    <span class="tag">${vs.length} variant${vs.length === 1 ? "" : "s"}</span>
+    ${g.manner ? `<span class="tag" style="border-color:${g.valence >= 0 ? "#6fd08c" : "#e8624e"};color:${g.valence >= 0 ? "#6fd08c" : "#e8624e"}">${esc(g.manner)} · valence ${g.valence}</span>`
+               : `<span class="tag">untyped — prose names no manner</span>`}
+    <div class="lbl">lived</div>
+    <div class="kv">
+      <b>plays</b><span>${fmtN(g.plays)}${g.plays ? "" : " — rendered, never rolled"}</span>
+      <b>last played</b><span>${g.play_last ? ago(g.play_last) : "—"}</span>
+      <b>learned</b><span>${g.created ? day(g.created) + " (" + ago(g.created) + ")" : "no gif on disk"}</span>
+    </div>
+    ${dec.length ? `<div class="lbl">live weight</div><div class="kv">${dec.map(d =>
+      `<b>${esc(d.c)}</b><span>${(d.r.share * 100).toFixed(1)}% of the next pick (weight ${d.r.weight})</span>`).join("")}</div>` : ""}
+    <div class="lbl">motion prompt</div><div class="prompt">${esc(g.motion_prompt)}</div>
+    <div class="lbl">clips</div>
+    <div class="grid">${vs.map(e => `<figure><img src="${esc(e.gif)}" loading="lazy" onerror="this.style.opacity=.2">
+      <figcaption>v${e.variant}${e.plays ? " · ×" + e.plays : ""}</figcaption></figure>`).join("")}</div>`;
+}
+
+/* ---------------------------------------------------------------- now strip (live) */
+function renderNow() {
+  const V = S.V;
+  $("#now").innerHTML = V.live_characters.map(c => {
+    const n = V.now[c] || {}, w = V.world.signal && V.world.signal.signal || {};
+    const rows = ((n.decision || {}).rows || []).slice(0, 5);
+    const path = (n.path || []).map(p => p.split(":")[1]).join(" → ");
+    return `<div class="nowcard" id="now-${c}">
+      <h3 style="color:${PALETTE[c] || "#fff"}">${esc(c)}</h3>
+      <div class="sub" id="nowpose-${c}">at <b>${esc((n.node || "").split(":")[1])}</b> · dwell ${fmtN(n.dwell)}
+        ${n.night ? "· 🌙 night, circadian owns the body" : ""}</div>
+      <div class="sub">wants <b style="color:#ffd479">${esc((n.goal || "—").split(":")[1] || "—")}</b>
+        ${path ? `· route ${esc(path)}` : ""} ${n.band ? `· band ${esc(n.band)}` : ""}</div>
+      <div class="sub" style="font-style:italic">“${esc(n.mood || "—")}”</div>
+      <div class="lbl" style="margin:8px 0 3px">next clip · ${(n.decision || {}).exits || 0} exits${(n.decision || {}).consulted === false ? "" : " weighed"}</div>
+      ${(n.decision || {}).consulted === false
+        ? `<div class="sub" style="color:${BT}">🌙 the circadian chain owns the body right now — these weights are computed but
+             <b>not consulted</b> until wake. The pick is forced along the bedtime routine.</div>` : ""}
+      <div class="${(n.decision || {}).consulted === false ? "asleep" : ""}">
+      ${rows.map(r => `<div class="bar"><span style="width:${(r.share * 100).toFixed(1)}%"></span>
+        <em><span>${esc(r.label)}${r.kind === "idle" ? " (stay)" : " → " + esc(r.to.split(":")[1])}</span>
+        <span>${(r.share * 100).toFixed(0)}%</span></em></div>`).join("") || `<span class="hint">no exits weighed</span>`}</div>
+      <div class="sub" style="margin-top:6px">${esc(V.world.context && V.world.context.phrase || "")}
+        ${w.energy ? `· energy <b>${esc(w.energy)}</b>` : ""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* the export is a snapshot; the pose files are written continuously. Re-reading just those two
+   small files keeps the strip honest about WHERE the bodies are without pretending the weights
+   underneath it were recomputed. */
+function pollLive() {
+  S.V.live_characters.forEach(c => {
+    fetch("data/mind/pose/" + c + ".json?t=" + Date.now()).then(r => r.json()).then(p => {
+      const el = document.getElementById("nowpose-" + c);
+      if (!el) return;
+      const moved = p.node !== (S.V.now[c] || {}).node;
+      el.innerHTML = `at <b>${esc((p.node || "").split(":")[1])}</b> · dwell ${fmtN(p.dwell)}
+        ${moved ? '<span style="color:#5ce1e6">· moved since this view was built</span>' : ""}`;
+    }).catch(() => {});
+  });
+}
+
+/* ---------------------------------------------------------------- memory tab */
+function renderMemory() {
+  const V = S.V;
+  $("#memsheet").innerHTML = `<h2>What each character is remembering right now</h2>
+  <p class="hint" style="max-width:100ch">Retrieval is scored, not tailed: recency decay
+  <code>${V.memory[V.live_characters[0]] ? V.memory[V.live_characters[0]].retrieval_params.recency_decay_per_hour : ""}</code>/hour,
+  importance as the surprisal of the want, relevance in <b>transition hops from where the body stands</b> —
+  which is the part a vector store cannot do, because the graph already knows how far a memory happened
+  from here. Bounded by a token budget rather than an entry count, with slots reserved for distant
+  memories, so the prompt stays flat while the journal grows forever. The reader this replaced was
+  <code>lines[-5:]</code>.</p>
+  <div class="cols">${V.characters.filter(c => (V.memory[c] || {}).available).map(c => {
+    const m = V.memory[c], maxw = Math.max(...m.wants.map(w => w.n));
+    return `<div class="card">
+      <h3 style="color:${PALETTE[c] || "#fff"}">${esc(c)}</h3>
+      <div class="kv">
+        <b>journal</b><span>${fmtN(m.entries)} entries over ${m.days} days</span>
+        <b>retrieved now</b><span>${m.retrieved.length} memories${m.reach_days ? `, reaching back ${m.reach_days.min}–${m.reach_days.max} days (median ${m.reach_days.median})` : ""}</span>
+        <b>budget</b><span>${m.retrieval_params.token_budget} tokens · ${m.retrieval_params.pins} pins over ${m.retrieval_params.pin_min_age_days}d</span>
+      </div>
+      <div class="prompt">${esc(m.aggregate_line)}</div>
+      <div class="lbl">retrieved for the last decision</div>
+      ${m.retrieved.map(r => `<div class="mem ${r.kind === "reflection" ? "refl" : ""}">
+        <div class="meta">${r.age_days}d ago · ${esc((r.pose || "").split(":")[1] || "?")}${r.hops != null ? ` · ${r.hops} hop${r.hops === 1 ? "" : "s"} away` : " · off the walk"}${r.band ? " · " + esc(r.band) : ""}${r.kind === "reflection" ? " · REFLECTION" : ""}</div>
+        ${esc(r.reason)}</div>`).join("")}
+      <div class="lbl">what it has wanted, all of it</div>
+      ${m.wants.map(w => `<div class="bar"><span style="width:${(w.n / maxw * 100).toFixed(1)}%"></span>
+        <em><span>${esc(w.goal.split(":")[1])}</span><span>${fmtN(w.n)} · ${(w.share * 100).toFixed(1)}%</span></em></div>`).join("")}
+      <div class="lbl">nightly reflections · written in the circadian dwell, no goal key, so they never enter the histogram above</div>
+      ${(m.reflections || []).slice().reverse().map(r => `<div class="mem refl">
+        <div class="meta">${esc(r.night)} · over ${fmtN(r.over)} moments · ${(r.trigger || []).map(esc).join(", ")}</div>
+        ${esc(r.reason)}</div>`).join("") || '<span class="hint">none yet</span>'}
+    </div>`;
+  }).join("")}</div>`;
+}
+
+/* ---------------------------------------------------------------- codemap tab */
+function renderCodemap() {
+  const rows = S.V.codemap, layers = [...new Set(rows.map(r => r.layer))];
+  const titles = { map:"the map", time:"the two clocks", typing:"typing", choice:"the choice",
+    memory:"memory", world:"the world seam", body:"the body", growth:"growth", proof:"proof", view:"this artifact" };
+  $("#mapsheet").innerHTML = `<h2>Codebase map</h2>
+    <p class="hint" style="max-width:100ch">Every row is checked against disk at export time. The right-hand
+    column is what that module puts on screen — click it to jump to that lens. Nothing here is inferred from
+    file names: a module's role is authored, its size, mtime and existence are measured.</p>
+    ${layers.map(L => `<h2><span class="layer">${esc(titles[L] || L)}</span></h2>
+    <table><thead><tr><th>module</th><th>what it contributes</th><th>lines</th><th>shows up as</th></tr></thead><tbody>
+    ${rows.filter(r => r.layer === L).map(r => `<tr>
+      <td><code>${esc(r.path)}</code>${r.exists ? "" : ' <span class="miss">missing</span>'}</td>
+      <td>${esc(r.role)}</td>
+      <td>${r.lines ? fmtN(r.lines) : "—"}</td>
+      <td>${LENS_OF[r.shows] ? `<button class="btn" data-jump="${LENS_OF[r.shows]}">${esc(r.shows)}</button>` : esc(r.shows)}</td>
+    </tr>`).join("")}</tbody></table>`).join("")}`;
+  $("#mapsheet").querySelectorAll("[data-jump]").forEach(b => b.onclick = () => {
+    document.querySelector('nav button[data-tab="graph"]').click();
+    setLens(b.dataset.jump);
+  });
+}
+
+/* ---------------------------------------------------------------- honesty tab */
+function renderHonesty() {
+  const V = S.V, cov = V.meta.style_coverage, st = V.meta.stamped, pr = V.meta.provenance;
+  const lived = Object.entries(V.lived).map(([c, l]) =>
+    `<tr><td>${esc(c)}</td><td>${fmtN(l.visits)}</td><td>${fmtN(l.dwell_units)}</td>
+     <td>${fmtN(l.nodes_visited)} / ${fmtN(l.nodes_recorded)}</td><td>${fmtN(l.clips_played)}</td><td>${fmtN(l.plays)}</td></tr>`).join("");
+  $("#honsheet").innerHTML = `<h2>What this artifact does not know</h2>
+    <ul class="caveats">${V.caveats.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
+    <h2>Coverage, stated rather than implied</h2>
+    <div class="cols">
+      <div class="card"><h3>Typing</h3>
+        <div class="kv"><b>typed</b><span>${cov.typed} of ${cov.n} (${(cov.share * 100).toFixed(1)}%)</span>
+          <b>transitions</b><span>${cov.by_kind.transition.typed} of ${cov.by_kind.transition.n}</span>
+          <b>idles</b><span>${cov.by_kind.idle.typed} of ${cov.by_kind.idle.n}</span>
+          <b>untyped</b><span>${cov.untyped} — reported untyped, not called neutral</span></div>
+        <div class="lbl">manners found</div>
+        <div class="kv">${Object.entries(cov.manners).sort((a, b) => b[1] - a[1])
+          .map(([m, n]) => `<b>${esc(m)}</b><span>${n}</span>`).join("")}</div></div>
+      <div class="card"><h3>Provenance</h3>
+        <div class="kv"><b>nodes stamped</b><span>${st.nodes_created} of ${st.nodes}</span>
+          <b>edges stamped</b><span>${st.edges_created} of ${st.edges}</span>
+          <b>tombstoned</b><span>${pr.nodes_dead} nodes, ${pr.edges_dead} edges</span>
+          <b>range</b><span>${day(S.tmin)} → ${day(S.tmax)}</span></div>
+        <p class="hint">Invalidation is a diff against the last committed graph, not a flag, so a clip that
+        disappears any way at all is tombstoned with its whole record — and the live JSON stays a pure live
+        view, which is what makes “the walker never plays a dead clip” true by construction.</p></div>
+    </div>
+    <h2>The lived record</h2>
+    <table><thead><tr><th>character</th><th>visits</th><th>dwell units</th><th>poses stood in</th><th>clips rolled</th><th>plays</th></tr></thead>
+    <tbody>${lived}</tbody></table>
+    <h2>The weights the body walks</h2>
+    <table><thead><tr><th>constant</th><th>value</th></tr></thead><tbody>
+      ${Object.entries(V.policy).map(([k, v]) => `<tr><td><code>${esc(k)}</code></td>
+        <td>${typeof v === "object" ? esc(JSON.stringify(v)) : esc(v)}</td></tr>`).join("")}
+    </tbody></table>`;
+}
 </script>
 </body>
 </html>
