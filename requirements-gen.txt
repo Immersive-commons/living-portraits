@@ -1,0 +1,28 @@
+# living-portraits -- OPTIONAL clip-generation stack. Not needed to develop.
+#
+# Nothing in runtime/, director/, health/, scripts/ or tests/ imports any of
+# this. It is the pipeline/ layer only: minting new anchor images and motion
+# clips on a CUDA GPU. If you are reading the graph, changing policy, working on
+# the viewer, or running the suite, skip this file entirely -- see
+# requirements.txt and CONTRIBUTING.md.
+#
+# Installing it is a real commitment: ~15 GB of weights, a CUDA toolchain, and
+# two vendored upstreams (InstantID, LivePortrait) that are NOT in this repo --
+# `pipeline/vendor/` is gitignored. install/GENSTACK_INSTALL.md is the runbook.
+#
+# HARD RULE, learned the expensive way: never `pip install -r requirements.txt`
+# from inside the vendored InstantID or LivePortrait trees. Both pin
+# transformers 4.38, which breaks diffusers 0.37.1 and takes the whole stack
+# down with it. Install their dependencies by hand, as GENSTACK_INSTALL.md does.
+#
+# Unpinned on purpose: the working set is CUDA- and driver-specific, so a pin
+# here would be a pin for one machine. GENSTACK_INSTALL.md carries the versions
+# verified on the production host (torch 2.5.1+cu121, onnxruntime-gpu 1.20.1).
+
+torch
+diffusers
+transformers
+accelerate
+insightface
+onnxruntime-gpu
+imageio-ffmpeg

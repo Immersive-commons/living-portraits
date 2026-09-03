@@ -1,0 +1,32 @@
+# living-portraits -- core dependencies.
+#
+# This is everything you need to run the test suite, build a graph, drive the
+# walker headless, and open the viewer. It is deliberately small: the whole
+# runtime/ layer is pure stdlib by contract (the 10 fps render loop imports it,
+# so it may never pull in a heavy dependency), and these are the few libraries
+# the render, capture and test paths actually touch.
+#
+#     python -m pip install -r requirements.txt
+#
+# You do NOT need requirements-gen.txt to develop on this repo. That file is the
+# clip-generation stack -- torch, diffusers, InstantID, LivePortrait -- and it is
+# only used to mint new media on a CUDA box. See CONTRIBUTING.md.
+#
+# Floors, not pins: these are the oldest versions known to work. The suite is
+# green on the current release of each as of 2026-09-02 (numpy 2.2, opencv 4.12,
+# Pillow 10.4, imageio 2.37, pytest 8.4).
+
+numpy>=1.24
+opencv-python>=4.8
+PyYAML>=6.0
+pillow>=10.0
+imageio>=2.31
+
+# The player blits to a borderless SDL window. Everything else -- including the
+# entire render path under test -- runs headless through clip_player.DummySurface,
+# so pygame is only required to actually paint panels on a physical display.
+pygame>=2.5
+
+# Test runner. `python tests/run_all.py` is a stdlib fallback that runs the same
+# tests without it, so this is optional-but-recommended.
+pytest>=8.0

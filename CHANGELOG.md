@@ -42,6 +42,41 @@ pose graph and a clip list.
   the percentage at the same x. Caught by probing the two spans' bounding boxes rather than by
   looking at a screenshot, which is the only way that class of bug is falsifiable.
 
+### Added — a clone you can actually run
+
+Bringing a collaborator on found that a fresh checkout was a dead end. Everything below is that
+gap, closed and then verified by cloning into a scratch directory and running it as a stranger.
+
+- **`requirements.txt`** — there was no dependency manifest of any kind, so the six libraries
+  this needs were knowable only by reading imports. Split from **`requirements-gen.txt`**, the
+  CUDA clip-generation stack, which nothing outside `pipeline/` imports and nobody needs to
+  develop here.
+- **`scripts/seed_demo_media.py`** — `build` discovers edges by globbing clips on disk, so on a
+  bare clone it found none, every pose had no way out, and the build correctly refused to save
+  21 walk-safety errors. That is a wall: no graph, no walk, no lived record, nothing for the
+  viewer to open. The seeder writes placeholder stills and procedurally-animated loops for every
+  still and clip the graph declares, which turns a bare clone into **20 nodes, 98 edges,
+  walk-safe** — the full bedtime chain included, because it reads `bedtime_routine.json` directly
+  rather than waiting for edges that only appear once their clips exist. It never overwrites a
+  file that already exists, so running it on the production host is a no-op.
+- **`AGENTS.md`** — how to point a coding agent at this repo, built around the five invariants no
+  test can catch: single-writer files, `runtime/` stays pure stdlib, a walk-safety refusal is
+  correct behaviour, absence is a skip with a reason, detection never repairs.
+- **`CONTRIBUTING.md`**, and a **README** that had described the May state — the wrong host, and
+  a status list with the generative pipeline still unchecked, three months after it shipped.
+
+### Fixed — while verifying the above
+- **The viewer's own intro contradicted its header.** "the same 266 poses and 1,558 clips" was
+  hardcoded prose; on any dataset but the production one it stated a number the chips directly
+  above it disproved. It now reads the loaded view. Found by rendering the artifact against a
+  seeded clone, which is the only configuration where a hardcoded production count is visibly
+  wrong — and the first repair for it threw, because `V.nodes` is an object and only `V.edges`
+  is an array.
+- Documented that **`health/` is an operator surface, not a contributor one**: `checks.py` SSHes
+  to the production host rather than inspecting your checkout, and `oracle.yaml` hardcodes that
+  host's interpreter path. Both are fine; neither was written down, and both look like something
+  a new contributor should be able to run.
+
 ---
 
 ## 0.4.0 — 2026-08-11

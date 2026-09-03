@@ -497,7 +497,7 @@ function applyLens() {
 function introCard() {
   const V = S.V;
   return `<h2>One graph, six readings</h2>
-    <p class="hint">This is the same 266 poses and 1,558 clips the May viewer drew — joined, now, with what
+    <p class="hint">This is the same ${fmtN(Object.keys(V.nodes).length)} poses and ${fmtN(V.edges.length)} clips the May viewer drew — joined, now, with what
     the characters have actually <b>lived</b>, when the system <b>learned</b> each thing exists, what each
     clip's prose says about <b>how</b> it moves, what they <b>remember</b>, and the live weight on every exit
     from where each body is standing this second.</p>
