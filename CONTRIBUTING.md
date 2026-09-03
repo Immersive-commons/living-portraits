@@ -48,6 +48,17 @@ Then read the "If you read nothing else" list at the top of
   production reality rather than logic, it belongs in the `test_real_*` family
   that measures against the snapshot instead of a fixture you built to pass.
 
+## How changes land
+
+`main` is protected: **it requires a pull request**, so a direct push will be
+rejected even with write access. Branch, push the branch, open a PR.
+
+```bash
+git checkout -b what-youre-doing
+git push -u origin what-youre-doing
+gh pr create --fill
+```
+
 ## Commits and docs
 
 Commit messages explain **why**, in prose. The CHANGELOG is written the same way
