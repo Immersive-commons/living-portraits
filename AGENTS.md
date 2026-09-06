@@ -41,8 +41,9 @@ component already writes, that is a design conversation, not an implementation
 detail.
 
 **2. The walker's import set is pure stdlib and must stay import-safe.** The 10
-fps render loop imports `policy`, `mind`, `circadian`, `pathfind`,
-`video_graph`, `lived` and `edge_style`. A network call, an LLM client, or a
+fps render loop imports `circadian`, `lived`, `mind`, `policy` and — soft, in a
+try/except — `edge_style`, and `mind` pulls in `pathfind`. It does NOT import
+`video_graph`: it reads the built JSON. A network call, an LLM client, or a
 heavy dependency introduced into any of those is a stutter on a physical wall.
 Everything with a socket or a model in it lives in `director/`. This line is
 real and it is not negotiable for convenience.

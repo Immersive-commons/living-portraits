@@ -30,7 +30,7 @@ certainly do not need it.** Nothing under `runtime/`, `director/`, `health/`,
 
 Read [AGENTS.md](AGENTS.md). It is written for coding agents but the five rules
 in it are the ones a human gets wrong too, and they are not enforced by any test:
-single-writer files, the walker's import set stays pure stdlib, walk-safety
+single-writer files, the walker's own import set stays pure stdlib, walk-safety
 refusals are correct, absence is a skip with a reason, detection never repairs.
 
 Then read the "If you read nothing else" list at the top of

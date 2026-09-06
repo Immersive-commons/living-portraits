@@ -2,8 +2,8 @@
 #
 # This is everything you need to run the test suite, build a graph, drive the
 # walker headless, and open the viewer. It is deliberately small: the walker's
-# own import set is pure stdlib by contract (policy, mind, circadian, pathfind,
-# video_graph, lived, edge_style -- the 10 fps render loop imports those, so
+# own import set is pure stdlib by contract (circadian, lived, mind, policy,
+# edge_style, and pathfind via mind -- the 10 fps render loop imports those, so
 # none of them may pull in a heavy dependency). The libraries below are what the
 # RENDERING half of runtime/, plus the capture and test paths, actually touch.
 #

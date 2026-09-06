@@ -21,9 +21,9 @@ have drifted by a few lines; the module and contract claims WERE re-checked.
    (`_preview_graph.py:41`), playing gifs listed in the video graph.
 3. The generation loop is `director/heartbeat.py` (`lp-mind`, ~4 min) proposing, and
    `pipeline/autogen.py` (`lp-gen`, every 20 min) building.
-4. **The walker's import set must stay pure stdlib and import-safe** — `policy`, `mind`,
-   `circadian`, `pathfind`, `video_graph`, `lived`, `edge_style` (`runtime/mind.py:24`,
-   `runtime/policy.py:34`). Not the whole directory: the rendering half of `runtime/` imports
+4. **The walker's import set must stay pure stdlib and import-safe** — `_preview_graph.py:33`
+   imports `circadian`, `lived`, `mind`, `policy`; `:40` adds `edge_style` fail-soft; `mind`
+   pulls `pathfind` (`runtime/mind.py:33`). Not `video_graph` — the walker reads the built JSON. Not the whole directory: the rendering half of `runtime/` imports
    numpy and cv2 at module level, and §2's table marks each file PURE or HEAVY. All
    network/LLM lives in `director/`.
 5. Every shared file has exactly ONE writer. That is the whole concurrency design
@@ -116,8 +116,8 @@ That is the ONLY coupling between the loops.
 
 ## 2. Module by module
 
-Legend: **PURE** = stdlib-only, import-safe, no network/GPU/display (the `runtime/` contract,
-`runtime/mind.py:24`). **HEAVY** = network, LLM, GPU or display.
+Legend: **PURE** = stdlib-only, import-safe, no network/GPU/display (the WALKER's contract --
+see item 4; it binds the modules the loop imports, not the whole directory). **HEAVY** = network, LLM, GPU or display.
 
 ### `runtime/` — deterministic playback layer
 
