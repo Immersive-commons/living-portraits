@@ -16,12 +16,12 @@ below with a reason. This is the direction that actually rots. Rows rarely break
 what happens is a module lands and nobody adds it, and the map decays by omission
 while every row in it still resolves.
 
-Scope is deliberately NOT the whole repo. A bidirectional check over all 90 files
-would demand "what produces what" prose for 28 test modules and 18 pipeline
-modules that do not contribute to the context view at all, which would push the
-map toward being an inventory -- the one thing its header says it is not. The
-scope is the layers that produce the artifact: runtime/, director/, scripts/, and
-the repo root.
+Scope is deliberately NOT the whole repo -- but not because pipeline/ and tests/
+are irrelevant. CODEMAP already carries rows for pipeline/autogen.py and
+tests/test_context_graph_probe.py, so "they do not contribute" would be false.
+The reason is VOLUME: 18 pipeline modules and 28 test modules would need a
+verdict each, and a list that long stops being read. The scope is the layers
+where an unmapped module is most likely to be load-bearing and missed.
 
 The point is not coverage. The point is that adding a module to those layers
 forces a decision -- is this load-bearing for the artifact? -- and records the
@@ -49,7 +49,7 @@ MAPPED = {row[1] for row in CODEMAP}
 
 # The layers whose files must be accounted for. pipeline/ and tests/ are out of
 # scope by design -- see the module docstring.
-SCOPED_DIRS = ("runtime", "director", "scripts")
+SCOPED_DIRS = ("runtime", "director", "scripts", "health")
 
 
 # Deliberately not in the map, with the reason. Adding a file to runtime/,
@@ -67,8 +67,8 @@ UNMAPPED = {
     "runtime/capture_demo.py": "offline demo renderer; produces a GIF, not the artifact",
     "runtime/behavior_select.py": (
         "no importers anywhere in the repo -- mapping it would describe a "
-        "component that nothing runs. See the open issue on ARCHITECTURE.md:436, "
-        "which currently lists it under the render stack."
+        "component that nothing runs. ARCHITECTURE.md:436 wrongly lists it under "
+        "the render stack player.py uses; tracked in issue #10."
     ),
     # --- director/: operator and telemetry surfaces, not producers of the view.
     "director/otel.py": "telemetry; fail-open by design and contributes no field",
@@ -76,9 +76,9 @@ UNMAPPED = {
     "director/voice_eval.py": "offline voice grading; not on the live loop",
     "director/signals.py": "thin adapter over feeds.py; no field of its own",
     "director/feeds.py": (
-        "ARGUABLY A GAP: context.py is mapped as 'the world seam' and this is "
-        "what supplies it. Left unmapped only because the seam's row already "
-        "describes the behaviour; revisit when the world layer is next touched."
+        "produces no field: export_context_view.py imports neither feeds nor "
+        "signals, and the world section is built from context.py alone. It "
+        "supplies the heartbeat, not the artifact."
     ),
     # --- scripts/: operator tools. backfill_lived.py IS mapped, because it
     # produced data the Lived lens still shows; these produce none.
@@ -89,8 +89,6 @@ UNMAPPED = {
     # --- repo root.
     "player.py": "parked v2 player (task lp-player, Disabled)",
     "gallery.py": "cast registry / add-character front door; upstream of the graph",
-    "_preview_cycle.py": "throwaway on-panel demo, self-declared TEMP",
-    "_preview_panels.py": "throwaway on-panel demo, self-declared TEMP",
 }
 
 
