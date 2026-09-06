@@ -5,7 +5,7 @@ proxy key. The gateway holds the real Z.ai org key; our key only carries a weekl
 token budget + a model allow-list (zero IC tool scopes), so it is safe on hil.
 
     base : https://immersivecommons13.tail5da903.ts.net   (tailnet; ZAI_GATEWAY_BASE_URL overrides)
-    model: glm-4.5-air  (fast + cheap; right for a per-tick decision. glm-4.6 for prose)
+    model: glm-5.1  (see DEFAULT_MODEL below; the gateway serves glm-5.1 -> glm-5.2)
     auth : Bearer agt_...   (resolved below, never committed)
 
 Key resolution order (first hit wins):

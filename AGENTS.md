@@ -15,7 +15,7 @@ one, written against the live production host with every claim cited
 
 ```bash
 python -m pip install -r requirements.txt
-python -m pytest tests/ -q                 # expect: 304 passed, 40 skipped
+python -m pytest tests/ -q                 # expect: 303 passed, 41 skipped
 python scripts/seed_demo_media.py          # placeholder media, ~118 files
 python runtime/video_graph.py build        # expect: 20 nodes, 98 edges, 0 errors
 python scripts/export_context_view.py
@@ -40,11 +40,18 @@ fail immediately or reproducibly. If your change needs to write somewhere anothe
 component already writes, that is a design conversation, not an implementation
 detail.
 
-**2. `runtime/` is pure stdlib and must stay import-safe.** The 10 fps render
-loop imports it. A network call, an LLM client, or a heavy dependency introduced
-anywhere under `runtime/` is a stutter on a physical wall. Everything with a
-socket or a model in it lives in `director/`. This line is real and it is not
-negotiable for convenience.
+**2. The walker's import set is pure stdlib and must stay import-safe.** The 10
+fps render loop imports `policy`, `mind`, `circadian`, `pathfind`,
+`video_graph`, `lived` and `edge_style`. A network call, an LLM client, or a
+heavy dependency introduced into any of those is a stutter on a physical wall.
+Everything with a socket or a model in it lives in `director/`. This line is
+real and it is not negotiable for convenience.
+
+Note the scope: it is those seven modules, not the whole directory. `runtime/`
+also holds the rendering half — `rig`, `clip_player`, `stage_render`,
+`crossframe`, `rig_loop`, `capture_demo` — which imports numpy and cv2 at module
+level and always has. ARCHITECTURE.md's module table marks each file PURE or
+HEAVY; that table is the authority, and this rule is about the PURE ones.
 
 **3. Walk-safety is enforced at build, and the build refusing to save is correct
 behaviour.** Every pose needs a way out: idle loops plus at least one transition

@@ -28,7 +28,7 @@ git clone https://github.com/Immersive-commons/living-portraits.git
 cd living-portraits
 python -m pip install -r requirements.txt
 
-python -m pytest tests/            # 304 passed, 40 skipped on a bare clone
+python -m pytest tests/            # 303 passed, 41 skipped on a bare clone
 python scripts/seed_demo_media.py  # placeholder stills + loops, 118 files
 python runtime/video_graph.py build        # -> 20 nodes, 98 edges, walk-safe
 python scripts/export_context_view.py      # -> data/graph/context_view.json
@@ -65,7 +65,7 @@ Linux both work for everything above; the panel player itself is Windows-first
 
 ### Skipped tests are expected
 
-40 of them. They fall into two groups, and both are honest skips rather than
+41 of them. They fall into two groups, and both are honest skips rather than
 hidden failures:
 
 - **`test_real_*`** — these assert against a 66-day production snapshot in
@@ -73,6 +73,11 @@ hidden failures:
   come back with numbers nobody chose; on a fresh clone they skip with that
   reason rather than quietly re-running on fixtures.
 - **dependency degradation** — anything needing a library you did not install.
+  One of these is worth naming, because it used to make the documented count
+  wrong: `test_otel` needs `opentelemetry-sdk`, which is deliberately **not** in
+  `requirements.txt` (`director/otel.py` is fail-open, so the system does not
+  need it). Install it and you get 304 passed / 40 skipped. Without it — which
+  is what following the setup above gives you — it is 303 / 41. Both are green.
 
 ---
 
@@ -80,7 +85,7 @@ hidden failures:
 
 | Path | What lives there |
 |---|---|
-| `runtime/` | The render loop's world: graph, walk, policy, circadian, lived record, provenance. **Pure stdlib by contract** — the 10 fps loop imports it, so nothing here may pull a heavy dependency. |
+| `runtime/` | The render loop's world: graph, walk, policy, circadian, lived record, provenance. **The walker's import set is pure stdlib by contract** — `policy`, `mind`, `circadian`, `pathfind`, `video_graph`, `lived`, `edge_style`. The 10 fps loop imports those, so none of them may pull a heavy dependency. The rendering half of this directory (`rig`, `clip_player`, `stage_render`, `crossframe`) does use numpy/cv2; see ARCHITECTURE.md's PURE/HEAVY table. |
 | `director/` | Everything with a network or an LLM in it: the stage manager, feeds, reflection, heartbeat, OTel. All of it lives on this side of the line. |
 | `pipeline/` | Clip generation. Needs a CUDA GPU and `requirements-gen.txt`. Not needed to develop. |
 | `health/` | Eight deterministic detectors for "this installation is fine". |

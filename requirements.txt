@@ -1,10 +1,11 @@
 # living-portraits -- core dependencies.
 #
 # This is everything you need to run the test suite, build a graph, drive the
-# walker headless, and open the viewer. It is deliberately small: the whole
-# runtime/ layer is pure stdlib by contract (the 10 fps render loop imports it,
-# so it may never pull in a heavy dependency), and these are the few libraries
-# the render, capture and test paths actually touch.
+# walker headless, and open the viewer. It is deliberately small: the walker's
+# own import set is pure stdlib by contract (policy, mind, circadian, pathfind,
+# video_graph, lived, edge_style -- the 10 fps render loop imports those, so
+# none of them may pull in a heavy dependency). The libraries below are what the
+# RENDERING half of runtime/, plus the capture and test paths, actually touch.
 #
 #     python -m pip install -r requirements.txt
 #

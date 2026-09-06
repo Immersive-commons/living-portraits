@@ -21,10 +21,15 @@ have drifted by a few lines; the module and contract claims WERE re-checked.
    (`_preview_graph.py:41`), playing gifs listed in the video graph.
 3. The generation loop is `director/heartbeat.py` (`lp-mind`, ~4 min) proposing, and
    `pipeline/autogen.py` (`lp-gen`, every 20 min) building.
-4. **Everything under `runtime/` must stay pure stdlib and import-safe** — the render loop
-   imports it (`runtime/mind.py:24`, `runtime/policy.py:24`). All network/LLM lives in `director/`.
+4. **The walker's import set must stay pure stdlib and import-safe** — `policy`, `mind`,
+   `circadian`, `pathfind`, `video_graph`, `lived`, `edge_style` (`runtime/mind.py:24`,
+   `runtime/policy.py:34`). Not the whole directory: the rendering half of `runtime/` imports
+   numpy and cv2 at module level, and §2's table marks each file PURE or HEAVY. All
+   network/LLM lives in `director/`.
 5. Every shared file has exactly ONE writer. That is the whole concurrency design
-   (`AUTONOMY.md:47-69`). Adding a second writer to any of them is the way to break this system.
+   (`AUTONOMY.md:47-69` — that file lives in the private tree and is not published here;
+   `scripts/release.py:55` lists it as a release-sync target). Adding a second writer to any
+   of them is the way to break this system.
 6. Precedence for what a portrait does: **circadian (clock) > mind (LLM goal) > walk**.
    Resolved in `_preview_graph.py:195-236`; in production (`--policy`) it is
    `_preview_graph.py:238-263`.
@@ -490,7 +495,13 @@ production state from the local `data/` directory.**
 10. **`data/` is gitignored in full.** There is no repo copy of production state, and the local
     one is two months stale. Read hil.
 11. **The journal grows without bound.** 13,432 lines for maxx, 11,272 for phineas, 7.1 MB
-    combined, and the brain reads the last 5 (`heartbeat.py:72`). No rotation exists.
+    combined. No rotation exists. ~~The brain reads the last 5 (`heartbeat.py:72`).~~
+    **Corrected 2026-09-06:** that retrieval was replaced in v0.3.0 and the cited line now
+    says so — `heartbeat.py:72-74` reads `JOURNAL_TOKENS = 700  # token budget for RETRIEVED
+    monologue`, with the comment "Replaced JOURNAL_TAIL = 5, which showed the character ~35
+    minutes". The live call is scored retrieval at `heartbeat.py:368`
+    (`journal_score.select(...)`), as §2's `journal_score.py` row and the v0.3.0 CHANGELOG
+    entry both already said. Unbounded growth is still real; the reading strategy was not.
 12. **`proposals.json` is 2.7 MB with 905 `failed` rows** out of 1157 (mostly the MJ 403 era),
     and every queue/status/generate call re-reads all of it. `pipeline/prune_proposals.py`
     exists for exactly this and has not been run.

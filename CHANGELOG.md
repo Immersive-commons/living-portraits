@@ -77,6 +77,72 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
+### Corrected — four claims that were not true
+
+An outside review of this repo checked the docs against the code rather than against each other.
+These are what it found. Each one had a citation, and the citation is what made it findable.
+
+- **The documented test count was off by one, and in the direction that stops work.** README,
+  AGENTS and CONTRIBUTING all said `304 passed, 40 skipped on a bare clone`. That figure needs
+  `opentelemetry-sdk`, which is deliberately not in `requirements.txt` — `director/otel.py` is
+  fail-open and the system does not need it. A clone following the documented setup gets
+  **303 / 41**. This mattered more than one test: AGENTS.md tells an agent that a changed count
+  means a broken baseline and to *stop and say so before beginning the task*, so the wrong number
+  was an instruction to halt on a healthy checkout. Now stated as 303 / 41, with the
+  `opentelemetry-sdk` case named in README.
+- **"`runtime/` is pure stdlib" was true of the walker, not the directory.** Stated in that
+  over-broad form in README, AGENTS rule 2, CONTRIBUTING, `requirements.txt`'s own header, and
+  ARCHITECTURE's "If you read nothing else" — while ARCHITECTURE's module table 110 lines later
+  correctly marked 6 of 19 files HEAVY. `runtime/rig.py:64` imports cv2 and numpy at module
+  level; `clip_player.py:44`, `stage_render.py:50` and `crossframe.py:111` import numpy. The
+  real invariant is narrower and still absolute: the seven modules the 10 fps loop imports —
+  `policy`, `mind`, `circadian`, `pathfind`, `video_graph`, `lived`, `edge_style` — are pure.
+  All five statements now say that, and point at the table as the authority.
+- **ARCHITECTURE said the brain reads the last 5 journal lines, citing the line that retracts
+  it.** `ARCHITECTURE.md:498` cited `heartbeat.py:72`, which reads `JOURNAL_TOKENS = 700  #
+  token budget for RETRIEVED monologue` and carries the comment "Replaced JOURNAL_TAIL = 5".
+  Scored retrieval shipped in 0.3.0 and this entry's own §2 table already said so. Unbounded
+  journal growth is still real; the reading strategy was not.
+- **The stated blocker on v0.5.0 no longer exists.** ROADMAP said `graph_viewer.html:127`
+  renders every node as a full-size PNG for a ~355 MB cold load. The viewer was rewritten in
+  `dcd6fc3` and now draws nodes as `shape:"dot", size:12` (`graph_viewer.html:283`); the only
+  two `<img>` uses are lazy, in the detail pane. The cost model was not updated with the
+  rewrite. Also corrected there: `_preview_graph.py` is 506 lines, not 460.
+
+Two more were found and are **not** fixed here, because both are behaviour rather than prose:
+`director/voice_eval.py:47` still pins `JUDGE_MODEL = "glm-4.5-air"`, which `research/FACTS.md:60`
+declares stale wherever it appears — but changing a live judge model is a behavioural change, not
+a doc fix. And `AUTONOMY.md`, cited for the single-writer invariant in three places, lives in the
+private tree and is not published here; ARCHITECTURE now says so rather than dangling.
+
+### Fixed — the suite could stop running entirely without failing
+
+- **`tests/test_verify.py` aborted collection for the whole session on any box where cv2 is
+  unimportable**, which is the normal state of a headless container: `opencv-python` imports fine
+  except that `libGL.so.1` is absent. Result was `Interrupted: 1 error during collection` and
+  **zero tests run** — presenting as one broken file rather than 344 tests not running. The guard
+  was a module-level `pytestmark`, which gates already-collected tests and does not stop the
+  module body, so the `import verify` two lines below still executed. (`pytest.importorskip` does
+  not fix it either: it defaults to catching `ModuleNotFoundError`, and this is a plain
+  `ImportError`.) Now uses conftest's `HAVE_*` probes — which saw it correctly all along — with
+  `pytest.skip(allow_module_level=True)`. Absence is a skip with a reason, never an error.
+
+### Added — the four commands are now checked by a machine
+
+- **`.github/workflows/ci.yaml`.** AGENTS.md's verification chain, run on every push and PR, with
+  the assertion it makes in prose finally made mechanically: both test counts are floors, so a
+  test that flips from pass to skip fails the build instead of hiding inside a green tick. A
+  second job installs deliberately *without* opencv and requires the suite to still run and still
+  skip cleanly — a permanent guard on the bug above. It also asserts all 23 codemap rows still
+  resolve on disk, which nothing checked, and renders the dual panel headless. It runs on Linux
+  on purpose: a green run means "you do not need our art, our GPU, or our hardware" is true on a
+  box nobody involved has ever touched.
+- **`requirements.lock`** (`uv pip compile --universal`), so CI installs the exact resolution the
+  Windows host would get, `win32` markers included. `requirements.txt` stays the contract.
+- **`.pylintrc`**, encoding what this project decided on purpose — the fail-open contract, the
+  import-degradation design, the sys.path wiring — each with its reason written next to it, and
+  with the genuine findings deliberately left switched on. 7.75 → 9.71.
+
 ---
 
 ## 0.4.0 — 2026-08-11
