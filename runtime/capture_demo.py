@@ -100,6 +100,8 @@ CANVAS_H = 256
 # Sibling renderers (import-guarded only insofar as their own deps are; numpy +
 # cv2 are present in the real pipeline and on this dev box). A hard failure here
 # is a real bug -- unlike pygame, these are the modules the demo exists to drive.
+# These three come AFTER the sys.path insert above -- that is the wiring, not an
+# oversight (see ruff.toml's note on E402).
 import stage_render as sr
 import crossframe as xf
 from rig_loop import RigLoop
@@ -268,8 +270,6 @@ def build_timeline(seconds: float, fps: int, char_a: str, char_b: str):
     # crossframe directions from the real panel geometry.
     geom = {nm: PANELS[nm]["rect"] for nm in PANELS}
     exit_dir, enter_dir = xf.edge_for_move("A", "B", geom)
-    PANELS["A"]["rect"]
-    PANELS["B"]["rect"]
 
     # Load the moving character's cutout once (RGBA) for the walk layers. The
     # walk animates char_a's figure; we need its raw cutout the way exit/enter
