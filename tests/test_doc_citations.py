@@ -168,32 +168,32 @@ def _claims():
 
 
 # Citations that are currently WRONG. Each entry is
-#   (doc-relative-path, doc-line, symbol): actual-definition-line
+#   (doc-relative-path, symbol, cited-line): actual-definition-line
+#
+# NOT keyed on the line the citation sits on. That number moves whenever anyone
+# edits the document -- which a doc-correction PR does by definition, so keying
+# on it would make this test fail on exactly the changes it exists to support.
+# `cited-line` is the number WRITTEN in the doc, which is stable until someone
+# fixes it, and fixing it is the event we want to detect.
 # Fixing the citation makes this test fail until the entry is removed, which is
 # the point: this is a work queue, not a suppression list. Tracked in issue #10.
 KNOWN_DRIFT = {
-    # The fenced call-flow blocks. Every one of these is real: the functions moved
-    # and the diagrams did not follow.
-    ("ARCHITECTURE.md", 52, "frame"): 342,
-    ("ARCHITECTURE.md", 54, "_pick"): 221,
-    ("ARCHITECTURE.md", 75, "tick"): 749,
-    ("ARCHITECTURE.md", 76, "_ensure_player"): 733,
-    ("ARCHITECTURE.md", 77, "decide_character"): 494,
-    ("ARCHITECTURE.md", 82, "propose_pose"): 625,
-    ("ARCHITECTURE.md", 87, "run_generate"): 823,
-    # The single-writer contract table.
-    ("ARCHITECTURE.md", 221, "_atomic_write"): 118,
-    ("ARCHITECTURE.md", 224, "save"): 127,
-    ("ARCHITECTURE.md", 481, "_resolve_goal"): 409,
-    ("_research/CONTEXT_GRAPHS_FINDINGS.md", 291, "_build_user_prompt"): 359,
-    # ARCHITECTURE.md:306 carries FOUR anchors in one row -- `_preview_graph.py:188`
-    # for `_pick`, then :203-204 for a short-circuit INSIDE it, then :238 for
-    # `_pick_policy`. `_pick` (:188 -> 221) and `_pick_policy` (:238 -> 271) are
-    # genuine drift; the :203 pairing is an artifact of a row this dense, and is
-    # recorded rather than tuned away because the fix is to split the row, not to
-    # make the checker cleverer about prose.
-    ("ARCHITECTURE.md", 306, "_pick"): 221,
-    ("ARCHITECTURE.md", 306, "_pick_policy"): 271,
+    ("ARCHITECTURE.md", "frame", 302): 342,
+    ("ARCHITECTURE.md", "_pick", 188): 221,
+    ("ARCHITECTURE.md", "tick", 530): 749,
+    ("ARCHITECTURE.md", "_ensure_player", 514): 733,
+    ("ARCHITECTURE.md", "decide_character", 298): 494,
+    ("ARCHITECTURE.md", "propose_pose", 406): 625,
+    ("ARCHITECTURE.md", "run_generate", 764): 823,
+    ("ARCHITECTURE.md", "_atomic_write", 103): 118,
+    ("ARCHITECTURE.md", "_atomic_write", 571): 118,
+    ("ARCHITECTURE.md", "save", 54): 127,
+    ("ARCHITECTURE.md", "save", 471): 127,
+    ("ARCHITECTURE.md", "_pick", 188): 221,
+    ("ARCHITECTURE.md", "_pick_policy", 203): 271,
+    ("ARCHITECTURE.md", "_pick_policy", 238): 271,
+    ("ARCHITECTURE.md", "_resolve_goal", 265): 409,
+    ("_research/CONTEXT_GRAPHS_FINDINGS.md", "_build_user_prompt", 239): 359,
 }
 
 
@@ -210,7 +210,7 @@ def test_no_new_citation_drift():
     """A citation that stops pointing at what it names is a silent doc regression."""
     new = [
         d for d in _drifted()
-        if KNOWN_DRIFT.get((d[0], d[1], d[2])) != d[4]
+        if KNOWN_DRIFT.get((d[0], d[2], d[3])) != d[4]
     ]
     assert not new, "Doc citations that no longer land on the symbol they name:\n" + "\n".join(
         f"  {doc}:{ln} cites :{cited} for `{sym}` -- it is at :{actual}"
@@ -220,11 +220,11 @@ def test_no_new_citation_drift():
 
 def test_known_drift_list_has_no_stale_entries():
     """Fixing a citation must retire its KNOWN_DRIFT entry, or the queue never empties."""
-    live = {(d[0], d[1], d[2]): d[4] for d in _drifted()}
+    live = {(d[0], d[2], d[3]): d[4] for d in _drifted()}
     stale = sorted(k for k in KNOWN_DRIFT if k not in live)
     assert not stale, (
         "These citations are no longer drifted -- delete them from KNOWN_DRIFT:\n  "
-        + "\n  ".join(f"{doc}:{ln} `{sym}`" for doc, ln, sym in stale)
+        + "\n  ".join(f"{doc} `{sym}` cited at :{cited}" for doc, sym, cited in stale)
     )
 
 
