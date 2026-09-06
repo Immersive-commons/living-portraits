@@ -16,9 +16,9 @@
 #                    EXCLUDING .venv* / data / *.png / *.gif / *.log / *.mp4 /
 #                    __pycache__, so the scp payload is exactly the runtime code.
 #   3. COPY       -- scp -r the staged tree to <RemoteRoot> on the host, then
-#                    regenerate run_player.bat as ASCII on the host with the
-#                    correct RemoteRoot baked in (the committed .bat hardcodes
-#                    the SC2 immer path, so it is rewritten per-host here).
+#                    write run_player.bat as ASCII on the host with the correct
+#                    RemoteRoot baked in. There is no committed .bat -- step 3
+#                    is the only place it comes from.
 #   4. VENV       -- create the runtime venv (py -3.12 -m venv .venv) on the host
 #                    and pip install the runtime deps:
 #                    pygame opencv-python-headless numpy imageio-ffmpeg Pillow.
@@ -131,9 +131,11 @@ $RUNTIME_DIRS = @(
 $RUNTIME_FILES = @(
     'player.py'     # the frameless dual-panel player (lp-player runs this)
 )
-# run_player.bat is NOT scp'd -- it is regenerated ASCII on the host (step 3)
-# with the correct RemoteRoot baked in, because the committed copy hardcodes the
-# SC2 immer path. EXCLUDED from the show entirely: data\ (runtime state + clips),
+# run_player.bat is NOT scp'd -- it is written ASCII on the host (step 3) with
+# the correct RemoteRoot baked in. There is no committed copy to scp: one used to
+# exist at the repo root, was never invoked (the scheduled task supplies its own
+# WorkingDirectory), and was deleted 2026-09-06.
+# EXCLUDED from the show entirely: data\ (runtime state + clips),
 # *.png / *.gif (portraits + demo media), *.log, .venv* (rebuilt per host),
 # __pycache__, gallery.py + tests\ (dev-only; not part of the runtime show).
 
