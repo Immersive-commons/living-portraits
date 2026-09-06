@@ -77,20 +77,26 @@ ignore = [
 
     # --- FOLLOW-UP: real findings, not yet fixed -------------------------------
     #
-    # These are NOT decisions. Each line is work someone still owes, listed with
-    # its count so the number cannot quietly grow. Fix the code and delete the
-    # entry; do not add to this block without a count and a reason for the delay.
-    "RUF046",   # 16 -- int() around values already int, in the geometry math.
-                #       Needs a read of each site: some are defensive against
-                #       numpy scalars leaking into pygame rects.
-    "E501",     # 12 -- long lines outside video_graph's prompt constants.
-    "PLW2901",  #  5 -- loop variable rebound in the body.
-    "PLR0911",  #  5 -- return-heavy dispatch functions.
-    "SIM115",   #  4 -- open() without a context manager; two are deliberate
-                #       (the handle outlives the try, see backfill_lived.py:61).
-    "E741",     #  3 -- `l` as a variable name.
-    "PLR0913",  #  3 -- over the max-args=8 set below, under weigh()'s 18.
-    "RUF001",   #  1 -- an ambiguous unicode char in a string literal.
+    # These are NOT decisions. Each is work someone still owes. Deliberately
+    # listed WITHOUT counts: a number here is a fourth thing to keep accurate,
+    # and it goes stale the moment anyone touches the code. Ask the tool instead
+    # -- it is always right and never needs updating:
+    #
+    #     ruff check --select RUF046,E501,PLW2901,PLR0911,SIM115,E741,PLR0913,RUF001 \
+    #                runtime director scripts health gallery.py player.py --statistics
+    #
+    # Delete a rule from this block when its count reaches zero.
+    "RUF046",   # int() around values already int, in the geometry math. Needs a
+                # read of each site: some guard against numpy scalars leaking
+                # into pygame rects.
+    "E501",     # long lines outside video_graph's prompt constants.
+    "PLW2901",  # loop variable rebound in the body.
+    "PLR0911",  # return-heavy dispatch functions.
+    "SIM115",   # open() without a context manager; two are deliberate (the
+                # handle outlives the try -- see backfill_lived.py:61).
+    "E741",     # `l` as a variable name.
+    "PLR0913",  # over the max-args=8 set below, under weigh()'s 18.
+    "RUF001",   # an ambiguous unicode char in a string literal.
 ]
 
 # NOTHING about complexity is raised here. Ruff's defaults stand, and every
