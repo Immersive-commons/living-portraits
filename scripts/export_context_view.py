@@ -46,9 +46,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from runtime import circadian, edge_style, journal_score, pathfind, policy  # noqa: E402
-from runtime import graph_provenance as gp  # noqa: E402
-from runtime import lived as lived_mod  # noqa: E402
+from runtime import circadian, edge_style, journal_score, pathfind, policy
+from runtime import graph_provenance as gp
+from runtime import lived as lived_mod
 
 SCHEMA = "living-portrait.context-view/v1"
 OUT = ROOT / "data" / "graph" / "context_view.json"

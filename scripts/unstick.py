@@ -95,7 +95,7 @@ def best_sibling(character, graph, pose):
     return max(cands)[1].split(":", 1)[1]
 
 
-def main():
+def main():  # noqa: PLR0912,PLR0915  -- CLI entry: parse, rank the plan, print the cost, apply. One linear flow is the readable shape for an operator tool that spends credits.
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--apply", action="store_true", help="actually generate (spends credits)")
     ap.add_argument("--limit", type=int, default=1, help="how many poses to unstick")
@@ -152,7 +152,8 @@ def main():
             print("  Higgsfield unavailable (%s) -- nothing generated, nothing spent" % detail)
             return 1
         lfwd, lrev = ag._edge_labels(sib, r["pose"])
-        pretty = lambda s: s.replace("_", " ")
+        def pretty(s):
+            return s.replace("_", " ")
         node_img = (graph["nodes"].get(r["node"]) or {}).get("image")
         sib_img = (graph["nodes"].get("%s:%s" % (ch, sib)) or {}).get("image")
         if not node_img or not sib_img:
@@ -192,7 +193,7 @@ def main():
 
     # rebuild in a FRESH process: video_graph merges autogen records at IMPORT time, so an
     # in-process rebuild would use a stale snapshot and silently drop the new edges.
-    subprocess.run([sys.executable, str(ROOT / "runtime" / "video_graph.py"), "build"], cwd=str(ROOT))
+    subprocess.run([sys.executable, str(ROOT / "runtime" / "video_graph.py"), "build"], cwd=str(ROOT), check=False)
     return 0
 
 

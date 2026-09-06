@@ -60,7 +60,7 @@ LEDGER = "DEPLOYED.json"
 
 
 def _run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+    return subprocess.run(cmd, capture_output=True, text=True, **kw, check=False)
 
 
 def deployable():

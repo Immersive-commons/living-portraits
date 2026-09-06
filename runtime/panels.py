@@ -63,7 +63,7 @@ PANELS_PATH = ROOT / "panels.yaml"
 # seed block and (historically) player.py's hardcoded PANELS.
 #   A  0,0   256x256  maroon/gold   <- LED screen 1 (larger frame)
 #   B  256,0 192x192  teal/mint     <- LED screen 2 (smaller, brighter)
-_DEFAULT_PANELS: "list[dict]" = [
+_DEFAULT_PANELS: list[dict] = [
     {"name": "A", "rect": (0, 0, 256, 256), "bg": (38, 14, 16),
      "accent": (210, 170, 90), "char": "phineas"},
     {"name": "B", "rect": (256, 0, 192, 192), "bg": (12, 26, 28),
@@ -75,7 +75,7 @@ _DEFAULT_PANELS: "list[dict]" = [
 # Validation helpers (each raises ValueError on a malformed field; the caller
 # turns ANY raise into a wholesale fall-back to _DEFAULT_PANELS).
 # --------------------------------------------------------------------------- #
-def _as_rect(value) -> "tuple[int, int, int, int]":
+def _as_rect(value) -> tuple[int, int, int, int]:
     """Coerce a [x, y, w, h] sequence to a 4-int tuple. w/h must be positive
     (a zero/negative panel can't be drawn and would break the window bounds)."""
     if not isinstance(value, (list, tuple)) or len(value) != 4:
@@ -83,7 +83,7 @@ def _as_rect(value) -> "tuple[int, int, int, int]":
     try:
         x, y, w, h = (int(v) for v in value)
     except (TypeError, ValueError):
-        raise ValueError(f"rect values must be integers, got {value!r}")
+        raise ValueError(f"rect values must be integers, got {value!r}") from None
     if w <= 0 or h <= 0:
         raise ValueError(f"rect w/h must be positive, got w={w} h={h}")
     if x < 0 or y < 0:
@@ -91,20 +91,20 @@ def _as_rect(value) -> "tuple[int, int, int, int]":
     return (x, y, w, h)
 
 
-def _as_rgb(value, field: str) -> "tuple[int, int, int]":
+def _as_rgb(value, field: str) -> tuple[int, int, int]:
     """Coerce a [r, g, b] sequence to a 3-int tuple, each clamped to 0..255."""
     if not isinstance(value, (list, tuple)) or len(value) != 3:
         raise ValueError(f"{field} must be [r, g, b], got {value!r}")
     try:
         rgb = tuple(int(v) for v in value)
     except (TypeError, ValueError):
-        raise ValueError(f"{field} values must be integers, got {value!r}")
+        raise ValueError(f"{field} values must be integers, got {value!r}") from None
     if any(c < 0 or c > 255 for c in rgb):
         raise ValueError(f"{field} channels must be 0..255, got {value!r}")
     return rgb  # type: ignore[return-value]
 
 
-def _normalize_panels(rows) -> "list[dict]":
+def _normalize_panels(rows) -> list[dict]:
     """Validate a list of raw panel dicts into the normalized internal shape.
 
     Returns a list of {name, rect (tuple), bg (tuple), accent (tuple), char}.
@@ -114,8 +114,8 @@ def _normalize_panels(rows) -> "list[dict]":
     """
     if not isinstance(rows, list) or not rows:
         raise ValueError("panels must be a non-empty list")
-    out: "list[dict]" = []
-    seen: "set[str]" = set()
+    out: list[dict] = []
+    seen: set[str] = set()
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
             raise ValueError(f"panel #{i} must be a mapping, got {type(row).__name__}")
@@ -138,7 +138,7 @@ def _normalize_panels(rows) -> "list[dict]":
     return out
 
 
-def _window_box(panels: "list[dict]") -> "tuple[int, int]":
+def _window_box(panels: list[dict]) -> tuple[int, int]:
     """The window size = the bounding box of every panel rect: (max x+w, max y+h).
 
     The player pins its window at the desktop top-left (0,0) and sizes it to this
@@ -150,7 +150,7 @@ def _window_box(panels: "list[dict]") -> "tuple[int, int]":
     return int(w), int(h)
 
 
-def _build(panels: "list[dict]") -> "tuple[dict, int, int]":
+def _build(panels: list[dict]) -> tuple[dict, int, int]:
     """Turn the normalized list into player.py's (PANELS dict, WINDOW_W, WINDOW_H).
 
     The dict preserves list order (insertion-ordered) so the draw order matches
@@ -173,7 +173,7 @@ def _build(panels: "list[dict]") -> "tuple[dict, int, int]":
 # --------------------------------------------------------------------------- #
 # Public API
 # --------------------------------------------------------------------------- #
-def load_panels(path: "Path | str | None" = None) -> "tuple[dict, int, int]":
+def load_panels(path: Path | str | None = None) -> tuple[dict, int, int]:
     """Load the panel layout, returning (panels, window_w, window_h).
 
     `panels` is the dict player.py used as PANELS:
@@ -218,14 +218,14 @@ def load_panels(path: "Path | str | None" = None) -> "tuple[dict, int, int]":
 # window box is computed right, and a missing file falls back to the same dict.
 # No pygame, no numpy, no network.
 # --------------------------------------------------------------------------- #
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     import tempfile
 
     print("=" * 78)
     print("panels.py self-test  (OFFLINE; no pygame / numpy / network)")
     print(f"  pyyaml={'yes' if yaml is not None else 'no(guarded)'}")
     print("=" * 78)
-    failures: "list[str]" = []
+    failures: list[str] = []
 
     def check(cond, msg):
         print(f"  [{'OK ' if cond else 'FAIL'}] {msg}")
@@ -298,7 +298,7 @@ def _selftest() -> int:
             bad_rect.write_text(
                 "version: 1\npanels:\n  - name: A\n    rect: [0, 0, 256]\n"
                 "    bg: [1,2,3]\n    accent: [4,5,6]\n", encoding="utf-8")
-            rp, rw, rh = load_panels(bad_rect)
+            rp, _rw, _rh = load_panels(bad_rect)
             check(rp["A"]["rect"] == (0, 0, 256, 256),
                   "invalid rect (len 3) -> whole file falls back to defaults")
 

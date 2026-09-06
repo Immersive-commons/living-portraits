@@ -178,7 +178,7 @@ def main(argv=None):
                     help="list what would be written and exit")
     args = ap.parse_args(argv)
 
-    import video_graph as vg                                     # noqa: E402
+    import video_graph as vg
 
     stills = [(spec["image"], char, pose)
               for char, poses in vg.NODE_SPECS.items()

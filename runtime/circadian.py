@@ -64,7 +64,8 @@ def _chain(cs):
         if beat.get("kind") == "transition":
             fwd[beat["from"]] = beat["label"]
             back[beat["to"]] = beat["reverse_label"]
-            labels.add(beat["label"]); labels.add(beat["reverse_label"])
+            labels.add(beat["label"])
+            labels.add(beat["reverse_label"])
             sleep_pose = beat["to"]            # last transition's destination = the sleep pose
         else:
             at = beat["at"]

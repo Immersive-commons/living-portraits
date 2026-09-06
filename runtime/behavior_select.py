@@ -63,7 +63,8 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
 
 # Repo root is the parent of runtime/. Used to locate the character JSON and
 # data/mood.json. Resolved lazily-safe (no I/O here, just a path object).
@@ -97,7 +98,7 @@ def character_path(slug: str) -> Path:
     return _CHAR_DIR / f"{slug}.json"
 
 
-def load_character(slug: str) -> Optional[dict]:
+def load_character(slug: str) -> dict | None:
     """Load + cache a character JSON by slug, refreshing on mtime change.
 
     Returns the parsed dict, or None if the file is missing or unparseable
@@ -234,7 +235,7 @@ def _is_loop_clip(clip: Any) -> bool:
     return bool(getattr(clip, "loopable", False))
 
 
-def _clip_character(tags: Sequence[str]) -> Optional[str]:
+def _clip_character(tags: Sequence[str]) -> str | None:
     """The slug a clip is tagged for ("character:<slug>"), or None if untagged."""
     for t in tags:
         if t.startswith("character:"):
@@ -374,8 +375,8 @@ def effective_weights(
 
 def draw_weighted(
     weights: Mapping[str, float],
-    rng: Optional[random.Random] = None,
-) -> Optional[str]:
+    rng: random.Random | None = None,
+) -> str | None:
     """Draw one key from {key: weight} with probability proportional to weight.
 
     Returns None when there are no keys or every weight is <= 0 (nothing to
@@ -419,9 +420,9 @@ def distribution(
 def pick_behavior(
     slug: str,
     available_clips_or_graph: Any,
-    mood: Optional[str] = None,
-    rng: Optional[random.Random] = None,
-) -> Optional[tuple[Any, str]]:
+    mood: str | None = None,
+    rng: random.Random | None = None,
+) -> tuple[Any, str] | None:
     """Choose the next idle behaviour loop for character `slug`.
 
     Reads the character spec (motion.idle_behaviors + dynamic.mood_reweights),
@@ -542,7 +543,7 @@ def _selftest() -> None:
     for _ in range(N):
         counts[draw_weighted(w, rng=rng)] += 1
     print("  empirical draw (conspiratorial, N=%d, seeded):" % N)
-    for bid in counts:
+    for bid in counts:  # noqa: PLC0206  -- the key is the subject here; values are read from a second map below
         emp = counts[bid] / N
         ana = dc[bid]
         print(f"    {bid:<16} empirical {emp:6.1%}  analytic {ana:6.1%}")

@@ -175,9 +175,7 @@ def _safe_set(span, key, value):
     if value is None:
         return
     try:
-        if isinstance(value, bool):
-            span.set_attribute(key, value)
-        elif isinstance(value, (int, float, str)):
+        if isinstance(value, (bool, int, float, str)):
             span.set_attribute(key, value)
         else:
             span.set_attribute(key, str(value))

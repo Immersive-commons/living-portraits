@@ -75,10 +75,10 @@ def shortest_path(all_edges, start, goal, adj=None):
         for e in adj.get(node, []):
             to = e.get("to")
             if to == goal:
-                return path + [to]
+                return [*path, to]
             if to not in seen:
                 seen.add(to)
-                q.append((to, path + [to]))
+                q.append((to, [*path, to]))
     return []
 
 

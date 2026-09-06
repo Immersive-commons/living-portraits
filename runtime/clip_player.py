@@ -39,7 +39,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 import numpy as np
 
