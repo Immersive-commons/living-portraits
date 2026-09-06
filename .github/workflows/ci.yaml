@@ -197,13 +197,9 @@ jobs:
           PY
 
   lint:
-    name: pylint
+    name: ruff
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Advisory for now: .pylintrc encodes what this project decided on purpose,
-    # and the findings that remain are real but not yet all fixed. Flip
-    # continue-on-error off once the score is where you want to hold it.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -211,13 +207,14 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install
-        run: |
-          uv venv
-          uv pip install -r requirements.lock pylint
-
+      # Ruff is the single Python linter here (see ruff.toml's header for why
+      # pylint was not adopted). This gate is green as of the ruff migration, so
+      # it BLOCKS -- a new finding is a failure, not a note. Findings that are
+      # real but not yet fixed live in ruff.toml's FOLLOW-UP block with counts,
+      # so they cannot grow silently while the gate stays green.
       - name: Lint
-        run: uv run python -m pylint runtime director scripts health gallery.py player.py
+        run: uvx ruff@0.16.6 check runtime director scripts health tests gallery.py player.py
+
+      - name: Formatting drift (advisory)
+        continue-on-error: true
+        run: uvx ruff@0.16.6 format --diff runtime director scripts health
