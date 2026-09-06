@@ -19,8 +19,8 @@ from conftest import HAVE_NUMPY
 
 pytestmark = pytest.mark.skipif(not HAVE_NUMPY, reason="crossframe needs numpy")
 
-import crossframe as cf  # noqa: E402
-from crossframe import (  # noqa: E402
+import crossframe as cf
+from crossframe import (
     CrossFrameState,
     EXIT_S, GAP_S, ENTER_S,
     PHASE_PRE, PHASE_EXIT, PHASE_GAP, PHASE_ENTER, PHASE_DONE,
@@ -274,7 +274,6 @@ def test_b_to_a_uses_mirrored_directions_and_enter_panel():
 # empty_layer helper
 # --------------------------------------------------------------------------- #
 def test_empty_layer_is_fully_transparent():
-    import numpy as np
     rgb, alpha = empty_layer(PANEL_B)
     assert rgb.shape == (192, 192, 3) and alpha.shape == (192, 192)
     assert int(alpha.sum()) == 0, "empty_layer alpha is not fully transparent"

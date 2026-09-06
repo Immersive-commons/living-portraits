@@ -1,7 +1,6 @@
 """The clip budget is the only thing standing between an autonomous loop and a spent
 month, so it gets tested at its edges: the per-character cap, the whole-system cap, and
 the day rollover."""
-import json
 import sys
 from pathlib import Path
 
@@ -10,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline import autogen  # noqa: E402
+from pipeline import autogen
 
 
 @pytest.fixture()

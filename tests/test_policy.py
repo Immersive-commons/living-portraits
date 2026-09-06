@@ -15,15 +15,17 @@ from runtime import policy
 def _graph():
     """Hub-and-spoke star with a forward+reverse pair per spoke (mirrors the real graph):
     hub <-> leafA, hub <-> leafB, hub <-> goalP, hub <-> bedP, plus a few idles."""
-    T = lambda lbl, a, b: {"id": lbl + "#0", "label": lbl, "kind": "transition", "from": a, "to": b}
-    I = lambda lbl, a: {"id": lbl + "#0", "label": lbl, "kind": "idle", "from": a, "to": a}
+    def T(lbl, a, b):
+        return {"id": lbl + "#0", "label": lbl, "kind": "transition", "from": a, "to": b}
+    def Idle(lbl, a):
+        return {"id": lbl + "#0", "label": lbl, "kind": "idle", "from": a, "to": a}
     return [
         T("h2a", "hub", "leafA"), T("a2h", "leafA", "hub"),
         T("h2b", "hub", "leafB"), T("b2h", "leafB", "hub"),
         T("h2g", "hub", "goalP"), T("g2h", "goalP", "hub"),
         T("h2bed", "hub", "bedP"), T("bed2h", "bedP", "hub"),
-        I("idle_hub", "hub"), I("idle_hub2", "hub"),
-        I("idle_a", "leafA"), I("idle_g", "goalP"),
+        Idle("idle_hub", "hub"), Idle("idle_hub2", "hub"),
+        Idle("idle_a", "leafA"), Idle("idle_g", "goalP"),
     ]
 
 

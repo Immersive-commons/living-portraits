@@ -119,7 +119,20 @@ max-positional-args = 8
 [lint.per-file-ignores]
 # Tests reach into internals on purpose (verify._synthetic_face, rig._synth_cutout)
 # and rebind fixture names by pytest's own convention.
-"tests/*" = ["PLR2004", "PLR0915", "PLC0415"]
+"tests/*" = [
+    "PLR2004",  # thresholds compared inline against the value under test
+    "PLR0915",  # a test that walks a long scenario is one test, not five
+    "PLC0415",  # deferred imports are how the suite degrades on a missing dep
+    "F811",     # pytest fixtures shadow their own name by design -- a fixture
+                # defined at module level and taken as a parameter is the whole
+                # idiom, and ruff reads it as a redefinition
+    "RUF059",   # unused unpacked values in `a, b = ...` destructuring assertions
+    "B905",     # zip() without strict=. Adding strict=True would change these
+                # assertions from "compare what pairs up" to "raise on length
+                # mismatch" -- a different test. Fix per-site, not by sweep.
+    "RUF012",   # mutable class attribute default, in a stub used as a fixture
+    "PLW1641",  # a comparison helper with __eq__ and no __hash__; never hashed
+]
 # Generation scripts are reference material that runs on a CUDA box, not on the
 # wall. ARCHITECTURE.md:399-401 marks them "LOCAL-GPU EXPERIMENTS (reference, not
 # run)"; they are linted for real errors but not for shape.

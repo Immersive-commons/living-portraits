@@ -22,10 +22,10 @@ pytestmark = pytest.mark.skipif(
     reason="verify.py imports cv2 + numpy at module load",
 )
 
-import numpy as np  # noqa: E402
+import numpy as np
 
-import verify  # noqa: E402
-from verify import (  # noqa: E402
+import verify
+from verify import (
     CONTINUITY_THRESHOLD, LOOP_THRESHOLD,
     Verdict, continuity, identity, loopability, register, ssim, verify_clip, verify_portrait,
 )

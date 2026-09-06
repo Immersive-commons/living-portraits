@@ -52,11 +52,11 @@ for _p in (str(ROOT), str(Path(__file__).resolve().parent)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import realdata                                          # noqa: E402
-from realdata import realdata_snapshot                    # noqa: E402,F401  (the skip fixture)
+import realdata
+from realdata import realdata_snapshot                    # noqa: F401  (the skip fixture)
 
-from director import heartbeat                            # noqa: E402
-from runtime import journal_score as js, pathfind         # noqa: E402
+from director import heartbeat
+from runtime import journal_score as js, pathfind
 
 PASS, PARTIAL, FAIL = "PASS", "PARTIAL", "FAIL"
 REPLAY_N = 20              # real decisions replayed per character (see _replay)

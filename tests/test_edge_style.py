@@ -354,8 +354,7 @@ def test_style_never_overturns_the_anti_reverse_fix():
 
 def test_style_never_overturns_the_goal_gradient():
     out = _pair()
-    graph = out + [{"id": "x/b2goal", "kind": "transition", "label": "b2g",
-                    "from": "b", "to": "goalP", "motion_prompt": ""}]
+    graph = [*out, {"id": "x/b2goal", "kind": "transition", "label": "b2g", "from": "b", "to": "goalP", "motion_prompt": ""}]
     styles = es.index(graph)
     # goal is reachable only through the SAUNTER edge; the storm-loving band must still walk it
     w = dict((e["id"], x) for e, x in policy.weigh(
@@ -412,7 +411,7 @@ def test_styling_strands_nothing_on_the_real_graph(real_edges, real_index):
             styled = policy.weigh(node, out, real_edges, band=band, styles=real_index)
             assert len(styled) == len(base)
             assert any(w > 0 for _, w in styled), (node, band)
-            for (e, sw), (_, bw) in zip(styled, base):
+            for (_e, sw), (_, bw) in zip(styled, base):
                 if bw == 0.0:
                     assert sw == 0.0                       # only exclusion zeroes an edge
                 else:

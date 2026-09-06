@@ -21,8 +21,7 @@ import collections
 import json
 import shutil
 import sys
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -265,7 +264,7 @@ def test_real_reflection_reenters_retrieval_and_does_not_pollute_the_aggregate(t
     counts_after = js.goal_counts(after)
     assert counts_after == counts_before                # not counted as a want
     total = sum(counts_after.values())
-    r = [e for e in after if reflect.is_reflection(e)][0]
+    r = next(e for e in after if reflect.is_reflection(e))
     assert js.importance(r, counts_after, total) == 1.0
 
     # 4. the life-shape line is unchanged except for the moment count

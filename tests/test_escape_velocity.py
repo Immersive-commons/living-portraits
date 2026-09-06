@@ -31,8 +31,7 @@ def _exit():
 
 # the real shape: one exit, three idles -- what autogen builds by default
 OUT = [_idle("spur_0"), _idle("spur_1"), _idle("spur_2"), _exit()]
-ALL = OUT + [{"id": "%s/hub_back/v0" % CH, "kind": "transition", "label": "hub_back",
-              "from": CH + ":hub", "to": CH + ":spur"}]
+ALL = [*OUT, {"id": "%s/hub_back/v0" % CH, "kind": "transition", "label": "hub_back", "from": CH + ":hub", "to": CH + ":spur"}]
 
 
 def _exit_share(dwell, band="fixated"):
