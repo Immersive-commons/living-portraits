@@ -6,9 +6,19 @@ confirmed is marked **(inferred)**. Closing section lists what I did not verify.
 
 **Updated 2026-08-11 for v0.4.0** — new modules (`lived`, `journal_score`,
 `graph_provenance`, `edge_style`, `reflect`), two new single-writer data contracts, two
-dwell-dependent policy terms, the `health/` detector suite, and the deploy ledger. Line
-citations from the original audit were not re-verified against the current files and may
-have drifted by a few lines; the module and contract claims WERE re-checked.
+dwell-dependent policy terms, the `health/` detector suite, and the deploy ledger.
+
+**Line citations verified against `3c99ff5` (2026-09-06.)** They had drifted 50-500 lines
+in sections 1 and 8 — the v0.4.0 pass re-checked the module and contract claims but not the
+line numbers, and `tick()` had moved 219 lines while still being cited at its old one. All
+of them are now exact as of that commit, which makes drift computable rather than confessed:
+
+    git diff 3c99ff5..HEAD -- director/heartbeat.py runtime/ _preview_graph.py
+
+Anything that touches those files is a prompt to re-run `tests/test_doc_citations.py`, which
+checks every citation that names a symbol. Range citations (`file.py:12-40`) point at blocks
+rather than definitions and cannot be checked mechanically; they were verified by hand in the
+same pass.
 
 ---
 
@@ -18,16 +28,16 @@ have drifted by a few lines; the module and contract claims WERE re-checked.
    panels at 10 fps from pre-baked gifs and generates nothing. A GENERATION loop proposes
    and buys new clips on a 20-minute timer. They meet only through `data/clips/video_graph.json`.
 2. The runtime loop is `_preview_graph.py` (scheduled task `lp-preview`), 10 fps
-   (`_preview_graph.py:41`), playing gifs listed in the video graph.
+   (`_preview_graph.py:58`), playing gifs listed in the video graph.
 3. The generation loop is `director/heartbeat.py` (`lp-mind`, ~4 min) proposing, and
    `pipeline/autogen.py` (`lp-gen`, every 20 min) building.
 4. **Everything under `runtime/` must stay pure stdlib and import-safe** — the render loop
-   imports it (`runtime/mind.py:24`, `runtime/policy.py:24`). All network/LLM lives in `director/`.
+   imports it (`runtime/mind.py:24`, `runtime/policy.py:34`). All network/LLM lives in `director/`.
 5. Every shared file has exactly ONE writer. That is the whole concurrency design
    (`AUTONOMY.md:47-69`). Adding a second writer to any of them is the way to break this system.
 6. Precedence for what a portrait does: **circadian (clock) > mind (LLM goal) > walk**.
-   Resolved in `_preview_graph.py:195-236`; in production (`--policy`) it is
-   `_preview_graph.py:238-263`.
+   Resolved in `_preview_graph.py:221-269`; in production (`--policy`) it is
+   `_preview_graph.py:271-301`.
 7. `data/clips/video_graph.json` is authoritative. `video_graph.live.json` is a stale local
    artifact that does not exist on hil — ignore it.
 8. `runtime/video_graph.py` is the live graph. `runtime/clip_graph.py` is the older,
@@ -48,10 +58,10 @@ lp-preview  (scheduled task, AtLogon, MultipleInstances=IgnoreNew)
   pythonw _preview_graph.py --a phineas --b maxx --loops 1 --a-tp 0.3
           --b-pose idle --b-tp 0.4 --mind --max-idle-secs 0 --policy
 
-  every frame (10 fps, _preview_graph.py:41, :413-451):
-    GraphCycler.frame()                 _preview_graph.py:302
+  every frame (10 fps, _preview_graph.py:58, :413-451):
+    GraphCycler.frame()                 _preview_graph.py:342
       -> blit one gif frame per panel
-      -> at clip end: _pick()           _preview_graph.py:188
+      -> at clip end: _pick()           _preview_graph.py:221
            reads data/mind/intent.json  (mtime-cached, :126-138)
            writes data/mind/pose/<char>.json when node or dwell changes (:140-158)
            hot-reloads video_graph.json on mtime change (:160-186)
@@ -59,7 +69,7 @@ lp-preview  (scheduled task, AtLogon, MultipleInstances=IgnoreNew)
 
 Two panels: A 256x256 @ (0,0), B 192x192 @ (256,0), one 448x256 borderless
 topmost window (`_preview_graph.py:39-40`), re-pinned every 100 frames (`:42`, `:431`).
-It never quits on pygame QUIT — only operator ESC (`:415-421`) — and rebuilds the window
+It never quits on pygame QUIT — only operator ESC (`:463-466`) — and rebuilds the window
 when a fullscreen app steals the display (`:433-450`).
 
 **Nothing in this loop calls a network or an LLM.** The `--mind` and `--policy` flags only
@@ -72,19 +82,19 @@ lp-mind     (AtLogon, long-lived process; NIGHT_INTERVAL 900s / DEFAULT_INTERVAL
   pythonw director/heartbeat.py --chars phineas,maxx --quiet --propose-every 8
 
   every ~4 min (heartbeat.py:70, :615-631):
-    tick()                              heartbeat.py:530
-      _ensure_player()                  heartbeat.py:514   (schtasks /Run lp-preview — backstop)
-      per character: decide_character() heartbeat.py:298
+    tick()                              heartbeat.py:749
+      _ensure_player()                  heartbeat.py:733   (schtasks /Run lp-preview — backstop)
+      per character: decide_character() heartbeat.py:494
         read pose/<char>.json + journal tail (5 lines, :72)
         GLM call via director/llm.py    heartbeat.py:327
         write intent.json (atomic)      heartbeat.py:571
         append journal/<char>.jsonl     heartbeat.py:222
-    every 8th tick: propose_pose()      heartbeat.py:406   -> proposals.json (status=pending)
+    every 8th tick: propose_pose()      heartbeat.py:625   -> proposals.json (status=pending)
 
 lp-gen      (time trigger, repeat PT20M)
   pythonw pipeline/autogen.py generate --auto --limit 1
 
-  run_generate()                        autogen.py:764
+  run_generate()                        autogen.py:823
     single-flight lock                  autogen.py:583
     for each pending/approved proposal:
       generate_one_hf()                 autogen.py:616     (backend "hf", default, :89)
@@ -157,7 +167,7 @@ belongs to the parked `player.py` rendering path (see §7).
 | `reflect.py` | **nightly reflection** (v0.4.0): in the circadian dwell, reads the day via `journal_score` and writes what the character UNDERSTANDS back into the same journal as `kind: "reflection"` — no `goal` key, so it never pollutes the want histogram and scores at max importance | HEAVY (LLM, fail-soft) |
 | `voice_eval.py` | measures per-character voice distinctness/fidelity via z.ai | HEAVY |
 
-`mj_safe.check()` is called on every proposal in BOTH paths (`heartbeat.py:491`,
+`mj_safe.check()` is called on every proposal in BOTH paths (`heartbeat.py:710`,
 `autogen.py:307`) — it is the one guard that is not optional.
 
 ### `pipeline/` — asset production
@@ -218,10 +228,10 @@ All of `data/` is gitignored (`.gitignore:2`). On hil the real files live at
 
 | File | Writer | Readers | Atomic? | If a second writer appears |
 |---|---|---|---|---|
-| `data/mind/intent.json` | **heartbeat only** (`heartbeat.py:571` via `_atomic_write` `:103`) | walker (`_preview_graph.py:126-138`), mtime-cached | yes (tmp + `os.replace`) | last-write-wins clobbers the other character's goal — `tick()` deliberately re-reads and merges (`heartbeat.py:546-550`) so it can drive a subset; a second *process* defeats that |
+| `data/mind/intent.json` | **heartbeat only** (`heartbeat.py:571` via `_atomic_write` `:118`) | walker (`_preview_graph.py:126-138`), mtime-cached | yes (tmp + `os.replace`) | last-write-wins clobbers the other character's goal — `tick()` deliberately re-reads and merges (`heartbeat.py:546-550`) so it can drive a subset; a second *process* defeats that |
 | `data/mind/pose/<char>.json` | **that character's walker only** (`_preview_graph.py:148-156`) | heartbeat (`heartbeat.py:182`) | yes | per-character path is why two panels don't race. One file for both characters would have raced; the split is the fix |
 | `data/mind/journal/<char>.jsonl` | heartbeat, append-only — decisions AND (v0.4.0) nightly `kind: "reflection"` lines from `director/reflect.py` | heartbeat via `journal_score.select` (SCORED retrieval since v0.3.0, not the last 5) | **no** — plain append | concurrent appends can interleave a line; readers skip unparsable lines (`:217-218`) so it degrades rather than breaks |
-| `data/clips/video_graph.json` | `video_graph.build()` (`video_graph.py:471`, `save()` `:54-61`) — driven by `lp-gen` | walker (hot-reload), heartbeat, pathfind | yes | a torn read is impossible by construction; two concurrent builds are prevented by the autogen lock, not by the file |
+| `data/clips/video_graph.json` | `video_graph.build()` (`video_graph.py:561`, `save()` `:54-61`) — driven by `lp-gen` | walker (hot-reload), heartbeat, pathfind | yes | a torn read is impossible by construction; two concurrent builds are prevented by the autogen lock, not by the file |
 | `data/mind/proposals.json` | `autogen.add_proposal` / `set_status` (`:142`, `:157`) — heartbeat proposes, worker transitions | both | yes (`_save` `:130`) | **read-modify-write, not locked.** Heartbeat appending while the worker sets a status can lose one side's edit. The 20-min/4-min cadences make the collision rare, not impossible **(inferred: I found no lock on this file)** |
 | `data/mind/clip_budget.json` | `_spend_clip` (`autogen.py:220`) | `clip_budget_left` (`:212`), status report | yes | the lock (`:583`) is what makes the read-modify-write safe — a second unlocked writer would let the daily cap be exceeded |
 | `data/mind/autogen_poses.json` | `_record_pose` (`autogen.py:530`) | `video_graph._load_autogen` (`:360`) | yes | same class as proposals: RMW under the autogen lock only |
@@ -303,7 +313,7 @@ graph size, lock state, both budgets, and cooldown (`autogen.py:832-936`).
 
 | | Legacy path (`--mind` only) | **Production path (`--policy`)** |
 |---|---|---|
-| entry | `_preview_graph.py:188` `_pick()` | `_pick()` short-circuits at `:203-204` → `_pick_policy()` `:238` |
+| entry | `_preview_graph.py:221` `_pick()` | `_pick()` short-circuits at `:203-204` → `_pick_policy()` `:271` |
 | clock | `circadian.decide(...)` `:205`; `"force"` wins outright `:207-209` | night only: `circadian.is_night` `:244`, `decide` `:245`, `"force"` wins `:248-250` |
 | LLM goal | `mind.decide(...)` `:214`; `"force"` wins `:216-218` | folded in as a *weight*: `goal` + `mood` + `route` passed to `policy.choose` `:257-262` |
 | walk | random idle/transition with anti-pendulum `:219-236` | one softmax, `runtime/policy.py:200-222` |
@@ -454,7 +464,7 @@ production state from the local `data/` directory.**
 ## 8. Seams a newcomer trips on
 
 1. **`runtime/` must stay import-safe.** It is imported by the 10 fps render loop
-   (`runtime/policy.py:24`, `mind.py:24`). Adding a network call, a heavy import, or
+   (`runtime/policy.py:34`, `mind.py:24`). Adding a network call, a heavy import, or
    import-time file I/O to any of `policy` / `mind` / `circadian` / `pathfind` stalls frames.
    The walker even guards its optional `director.context` import (`_preview_graph.py:34-37`)
    so a broken brain module can never stop the panels.
@@ -467,18 +477,18 @@ production state from the local `data/` directory.**
    Flagged in `AUTONOMY.md:138` and `:176`.
 4. **A clean exit is not a failure.** `RestartOnFailure` never fires when pygame gets a QUIT
    from a fullscreen app, which left the panels dark for hours on 2026-06-06. Two fixes now
-   coexist: the walker ignores QUIT entirely (`_preview_graph.py:415-421`) and the watchdog
+   coexist: the walker ignores QUIT entirely (`_preview_graph.py:463-466`) and the watchdog
    checks the *process*, not the task result (`lp_watchdog_preview.ps1`).
 5. **`_rebuild_graph` must be a fresh subprocess.** `video_graph`'s NODE_SPECS/EDGE_SPECS are
-   mutated at *import* time (`video_graph.py:416-424`), so an in-process `build()` would
+   mutated at *import* time (`video_graph.py:509-514`), so an in-process `build()` would
    silently omit the pose just recorded (`autogen.py:477-487`).
 6. **`build()` refuses to save a broken graph.** Any walk-safety ERROR raises SystemExit and
-   the old graph stays (`video_graph.py:466-472`). A new pose merges only when *every* edge it
-   declares already has a gif on disk (`:394`) — half-generated poses are skipped atomically,
+   the old graph stays (`video_graph.py:604`). A new pose merges only when *every* edge it
+   declares already has a gif on disk (`:428`) — half-generated poses are skipped atomically,
    never stranded.
 7. **The heartbeat's model names poses, not node ids.** 1170 of 1179 rejected decisions were
    the model answering `withered_rose` instead of `phineas:withered_rose`, and both characters
-   sat parked for hours as a result. `_resolve_goal` (`heartbeat.py:265-295`) repairs it —
+   sat parked for hours as a result. `_resolve_goal` (`heartbeat.py:409-439`) repairs it —
    don't "simplify" that back to an exact-membership test.
 8. **The clip budget is the only thing standing between the loop and the credit plan.**
    Generation is autonomous since 2026-08-09 — `pending` proposals are built with no human

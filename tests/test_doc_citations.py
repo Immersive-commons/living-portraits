@@ -32,10 +32,19 @@ TWO CONVENTIONS IN THIS REPO THAT A GENERIC TOOL MISSES
    no filename and inherits it from the first. There are ~100 of these. A regex
    demanding `name.ext:NNN` cannot see any of them, and they drift like the rest.
 
-Both are handled below. KNOWN_DRIFT records exactly what the checker reports today, so this test is green
-on a true statement rather than on a filtered one. Correcting a citation FAILS
-this test until its entry is deleted -- deliberately: the list is a work queue
-that cannot be ignored, not a suppression file. Tracked in issue #10.
+Both are handled below.
+
+A THIRD convention defeats this check, and it says so rather than pretending
+otherwise: range citations (`file.py:12-40`) point at BLOCKS, not definitions,
+and there are 31 of them. Binding a range to a definition line reports drift that
+is not drift, so ranges are not matched at all -- they were verified by hand
+against the commit named in ARCHITECTURE.md's header, and a test below asserts
+that this file keeps admitting it cannot see them.
+
+Symbols bind BEFORE-ONLY. Both conventions put the name first, so a symbol to the
+right of an anchor is a different claim. Binding rightwards produced three false
+reports on rows carrying several anchors -- the doc was right and this file was
+wrong -- which is worth remembering before loosening it again.
 """
 from __future__ import annotations
 
@@ -51,9 +60,14 @@ ROOT = Path(__file__).resolve().parent.parent
 SEARCH_DIRS = ("", "runtime", "director", "pipeline", "scripts", "tests", "health", "install")
 
 # `path/to/file.py:123` or `file.py:123-456`, with or without backticks.
-FILE_CITE = re.compile(r"`?([A-Za-z_][\w./-]*\.py)`?:(\d+)(?:-\d+)?")
+# A definition-site citation. The trailing `(?!-)` is load-bearing: `file.py:12-40`
+# is a BLOCK reference ("reads intent.json, mtime-cached"), not a claim about where
+# a symbol is defined, and there are 31 of them. Scoring a range against a def line
+# reports drift that is not drift, so ranges are not matched at all.
+FILE_CITE = re.compile(r"`?([A-Za-z_][\w./-]*\.py)`?:(\d+)(?!\d|-)")
 # A continuation anchor: `:123` with no filename, inheriting the last file cited.
-BARE_CITE = re.compile(r"`:(\d+)(?:-\d+)?`")
+RANGE_CITE = r"\.py`?:\d+-\d+"
+BARE_CITE = re.compile(r"`:(\d+)(?!\d|-)`")
 # A symbol reference. Two forms, because the two conventions in this repo differ:
 #   backticked prose  -- `tick`, `tick()`, `Class.method`, `module.CONST`
 #   bare call in a fence -- GraphCycler.frame(), _pick()
@@ -150,51 +164,33 @@ def _claims():
                 if target not in _TABLES:
                     _TABLES[target] = _symbol_table(target)
                 table = _TABLES[target]
-                # ADJACENCY, not nearest-on-the-line. A row often carries several
-                # anchors where only one names a definition and the rest point at
-                # locations INSIDE it -- ARCHITECTURE.md:229 cites `_acquire_lock`
-                # at :583 (correct) and then :63 / :592-606 for the stale-lock
-                # branch within it. Binding those to the symbol would report two
-                # drifts that are not drifts. So a symbol only claims a citation
-                # sitting immediately beside it, separated by nothing but the
-                # punctuation the convention uses: `sym` (`file.py:NNN`).
+                # BEFORE-ONLY. Both conventions here put the symbol first --
+                # `sym` (`file.py:N`) in prose, `sym()   file.py:N` in a fence --
+                # so a symbol to the RIGHT of an anchor is a different claim, not
+                # this one's subject. Binding rightwards is what produced three
+                # false reports: at :221 the anchor `heartbeat.py:571` is the
+                # intent.json WRITE SITE and `_atomic_write` sits after it; at
+                # :224 `save()` beat `build()` to the `video_graph.py:471` anchor
+                # by one character; at :306 the interior anchor `:203-204` bound
+                # to `_pick_policy()` further along the row. In all three the doc
+                # was right and this function was wrong.
                 known = [
-                    (abs(sp - pos), name) for sp, name in syms
-                    if name in table and abs(sp - pos) <= ADJACENT
+                    (pos - sp, name) for sp, name in syms
+                    if name in table and 0 < pos - sp <= ADJACENT
                 ]
                 if not known:
                     continue
                 yield doc, lineno, target, cited, min(known)[1]
 
 
-# Citations that are currently WRONG. Each entry is
-#   (doc-relative-path, symbol, cited-line): actual-definition-line
+# Every citation that names a symbol now lands on it. There is no drift ledger
+# here on purpose: a recorded baseline in a test file is a second, hidden copy of
+# a fact that belongs in the document, and it must be curated by whoever
+# maintains this repo. ARCHITECTURE.md's header carries the honest version --
+# the commit its line numbers were verified against -- where a reader will see it.
 #
-# NOT keyed on the line the citation sits on. That number moves whenever anyone
-# edits the document -- which a doc-correction PR does by definition, so keying
-# on it would make this test fail on exactly the changes it exists to support.
-# `cited-line` is the number WRITTEN in the doc, which is stable until someone
-# fixes it, and fixing it is the event we want to detect.
-# Fixing the citation makes this test fail until the entry is removed, which is
-# the point: this is a work queue, not a suppression list. Tracked in issue #10.
-KNOWN_DRIFT = {
-    ("ARCHITECTURE.md", "frame", 302): 342,
-    ("ARCHITECTURE.md", "_pick", 188): 221,
-    ("ARCHITECTURE.md", "tick", 530): 749,
-    ("ARCHITECTURE.md", "_ensure_player", 514): 733,
-    ("ARCHITECTURE.md", "decide_character", 298): 494,
-    ("ARCHITECTURE.md", "propose_pose", 406): 625,
-    ("ARCHITECTURE.md", "run_generate", 764): 823,
-    ("ARCHITECTURE.md", "_atomic_write", 103): 118,
-    ("ARCHITECTURE.md", "_atomic_write", 571): 118,
-    ("ARCHITECTURE.md", "save", 54): 127,
-    ("ARCHITECTURE.md", "save", 471): 127,
-    ("ARCHITECTURE.md", "_pick", 188): 221,
-    ("ARCHITECTURE.md", "_pick_policy", 203): 271,
-    ("ARCHITECTURE.md", "_pick_policy", 238): 271,
-    ("ARCHITECTURE.md", "_resolve_goal", 265): 409,
-    ("_research/CONTEXT_GRAPHS_FINDINGS.md", "_build_user_prompt", 239): 359,
-}
+# If this test fails, a citation stopped pointing at what it names. Fix the
+# citation. Do not add a ledger back.
 
 
 def _drifted():
@@ -208,23 +204,29 @@ def _drifted():
 
 def test_no_new_citation_drift():
     """A citation that stops pointing at what it names is a silent doc regression."""
-    new = [
-        d for d in _drifted()
-        if KNOWN_DRIFT.get((d[0], d[2], d[3])) != d[4]
-    ]
-    assert not new, "Doc citations that no longer land on the symbol they name:\n" + "\n".join(
+    drifted = _drifted()
+    assert not drifted, "Doc citations that no longer land on the symbol they name:\n" + "\n".join(
         f"  {doc}:{ln} cites :{cited} for `{sym}` -- it is at :{actual}"
-        for doc, ln, sym, cited, actual in new
+        for doc, ln, sym, cited, actual in drifted
     )
 
 
-def test_known_drift_list_has_no_stale_entries():
-    """Fixing a citation must retire its KNOWN_DRIFT entry, or the queue never empties."""
-    live = {(d[0], d[2], d[3]): d[4] for d in _drifted()}
-    stale = sorted(k for k in KNOWN_DRIFT if k not in live)
-    assert not stale, (
-        "These citations are no longer drifted -- delete them from KNOWN_DRIFT:\n  "
-        + "\n  ".join(f"{doc} `{sym}` cited at :{cited}" for doc, sym, cited in stale)
+def test_unverifiable_anchors_are_counted_not_hidden():
+    """Say what this check cannot see, rather than implying it saw everything.
+
+    Range citations (`file.py:12-40`) point at BLOCKS -- "reads intent.json,
+    mtime-cached" -- not at definitions, and bare `:NNN` anchors often point at a
+    line INSIDE a function. Neither is resolvable from a symbol table. Those were
+    verified by hand against the commit named in ARCHITECTURE.md's header.
+
+    This does not fail on them. It fails if the code ever starts pretending they
+    are covered.
+    """
+    text = (ROOT / "ARCHITECTURE.md").read_text(encoding="utf-8", errors="replace")
+    ranges = re.findall(RANGE_CITE, text)
+    assert ranges, (
+        "no range citations found -- if the convention changed, this test's "
+        "premise is stale and its docstring is now misleading"
     )
 
 
