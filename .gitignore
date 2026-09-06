@@ -12,3 +12,4 @@ pipeline/vendor/
 # article assets are deliberate deliverables — keep them tracked despite *.png above
 !_article/assets/
 !_article/assets/*.png
+.pytest_cache/

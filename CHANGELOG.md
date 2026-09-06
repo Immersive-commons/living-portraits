@@ -77,6 +77,37 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
+### Removed — three files nothing referenced, and one that was shipping by accident
+
+- **`_preview_cycle.py`, `_preview_panels.py`.** Self-declared TEMP/Throwaway in their own
+  docstrings, listed as THROWAWAY in ARCHITECTURE, and referenced by nothing — no import, no
+  `.ps1`, no scheduled task. Both ARCHITECTURE rows updated rather than left describing files
+  that are gone.
+- **`run_player.bat`.** Never invoked. Its own header says so: *"the scheduled task supplies its
+  own WorkingDirectory and never invoked this file."* `install/install_tasks.ps1:34` registers
+  `player.py` directly, and `install/deploy_host.ps1:134` states the `.bat` is not scp'd —
+  `:362` regenerates it on the host from an inline here-string. The committed copy was not the
+  shipped artifact. The comment at `deploy_host.ps1:363` that justified regenerating it
+  (*"the committed .bat hardcodes the SC2 immer path"*) was itself stale — the root copy had
+  already been changed to `cd /d "%~dp0"` — and is corrected in the same change.
+- **`research/` merged into `_research/`.** `scripts/deploy_hil.py:56` excludes `_research` and
+  not `research`, so `FACTS.md` and `citations.yaml` were being deployed to the production host
+  as part of "a running installation" — which they are not. The `_` prefix is this repo's
+  existing convention for exactly that distinction, so the move fixes the leak through the rule
+  already in place rather than by hand-adding an exception. Both files stay published in the OSS
+  subset; only the host stops receiving them.
+- **`.pytest_cache/`** added to `.gitignore`.
+
+`demo.gif` was reviewed in the same pass and **kept**. It is force-published
+(`scripts/release.py:72`) and was embedded by no markdown anywhere, which made 4.8 MB look
+unused; it is now shown in README's *Running the wall*, which had no image of the thing the
+project is. Deleting it would have been the irreversible reading of the same evidence.
+
+> **Ordering note for whoever lands this:** this repo is a published subset of a private
+> monorepo, and `scripts/release.py:31-33` computes its manifest from `git ls-files` in that
+> tree. Deletions and moves made only here report as drift on every `release.py check` until the
+> private tree matches. Land these there first.
+
 ---
 
 ## 0.4.0 — 2026-08-11

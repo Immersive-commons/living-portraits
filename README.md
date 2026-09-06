@@ -108,6 +108,14 @@ hidden failures:
 
 ## Running the wall
 
+![Both panels running: idle breathing, then a character walks out of one frame and into the next](demo.gif)
+
+Two panels, the real 448×256 stage. A still of this proves nothing — the breath,
+the blink, the gaze drift and the cross-frame walk only read as motion over time,
+which is why the demo is a loop and not a screenshot. `runtime/capture_demo.py`
+renders it headless through the same numpy compositor the wall uses, so it cannot
+drift from the show.
+
 The panel player is Windows-first: it pins a borderless SDL window to the desktop
 origin and an LED sending card grabs sub-rects out of it. `install/` carries the
 host bring-up, the scheduled-task definitions, and the watchdog.

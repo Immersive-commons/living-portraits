@@ -359,11 +359,13 @@ $null = Step 'copy runtime tree to host + regenerate run_player.bat' {
         }
     }
 
-    # 3c. Regenerate run_player.bat ASCII on the host with the correct RemoteRoot.
-    # The committed .bat hardcodes the SC2 immer path + uses python.exe; we write
-    # a per-host copy that cd's into RemoteRoot and runs pythonw.exe (windowless,
-    # matching how install_tasks.ps1 launches the player). Out-File ASCII so no
-    # BOM/CRLF surprises on the Windows-codepage host.
+    # 3c. Write run_player.bat ASCII on the host with the correct RemoteRoot.
+    # There is no committed .bat to copy -- this is the only place it comes from.
+    # (One used to exist at the repo root; it was never invoked, because the
+    # scheduled task supplies its own WorkingDirectory. Deleted 2026-09-06.)
+    # We write a per-host copy that cd's into RemoteRoot and runs pythonw.exe
+    # (windowless, matching how install_tasks.ps1 launches the player). Out-File
+    # ASCII so no BOM/CRLF surprises on the Windows-codepage host.
     $batBody = @"
 @echo off
 cd /d $RemoteRoot
