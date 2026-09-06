@@ -10,6 +10,21 @@ verify.py hard-requires cv2 + numpy at IMPORT (top-level `import cv2`), so the
 whole file skips on a box without them. InsightFace + Ollama are NOT required:
 identity runs degraded, and register is forced to a deterministic outcome via a
 monkeypatched _ollama_yes_no so no socket is ever opened.
+
+The skip has to happen at MODULE level, and neither of the two obvious ways
+works here. A `pytestmark = pytest.mark.skipif(...)` gates the tests pytest has
+already collected -- it does not stop this module's own body from running, so
+`import verify` below still executed at COLLECTION time and took the whole
+session down with `Interrupted: 1 error during collection`: zero tests run, in
+the entire suite, not just this file. And `pytest.importorskip("cv2")` does not
+catch it either, because importorskip defaults to ModuleNotFoundError while the
+failure we actually get is a plain ImportError -- opencv-python is installed and
+importable everywhere except that libGL.so.1 is missing, which is the normal
+state of a headless container.
+
+So: conftest's HAVE_* probes, which already `__import__` inside `except
+Exception` and therefore see this correctly, plus an explicit module-level skip.
+Absence is a skip with a reason, never an error (AGENTS.md rule 4).
 """
 from __future__ import annotations
 
@@ -17,10 +32,11 @@ import pytest
 
 from conftest import HAVE_CV2, HAVE_NUMPY
 
-pytestmark = pytest.mark.skipif(
-    not (HAVE_NUMPY and HAVE_CV2),
-    reason="verify.py imports cv2 + numpy at module load",
-)
+if not (HAVE_NUMPY and HAVE_CV2):
+    pytest.skip(
+        "verify.py imports cv2 + numpy at module load",
+        allow_module_level=True,
+    )
 
 import numpy as np  # noqa: E402
 
