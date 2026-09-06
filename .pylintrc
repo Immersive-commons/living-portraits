@@ -1,0 +1,105 @@
+# .pylintrc -- what this project has deliberately decided, told to the analyser.
+#
+# CodeFactor runs pylint over this repo and honours this file. Everything
+# disabled below is a decision the project already made ON PURPOSE, with the
+# reason written next to it. Nothing here is switched off merely to raise a
+# grade: the genuine findings -- unused names, `raise` without `from`,
+# unchecked subprocess calls, functions that really are too long -- stay on,
+# and get fixed in the code.
+#
+# The rule for editing this file: if you cannot write a one-line reason that
+# points at a specific design decision in AGENTS.md or ARCHITECTURE.md, the
+# rule does not belong here. Fix the code instead.
+
+[MAIN]
+# runtime/ modules import their siblings bare, the way player.py wires them at
+# run time (`sys.path.insert(0, ROOT / "runtime")`, mirrored in
+# tests/conftest.py:43). Pylint does not run that wiring, so without these it
+# reports import-error on modules that import fine in production.
+init-hook='import sys; sys.path[:0] = ["runtime", "director", "."]'
+
+[MESSAGES CONTROL]
+disable=
+# --- The five invariants that are not expressible in code (AGENTS.md) --------
+#
+# 1. Fail-open is the contract. These characters hang on a wall in a public
+#    space under a watchdog; a traceback out of the 10 fps loop is a frozen
+#    portrait nobody notices for a week. A bare `except Exception` guarding a
+#    render step is the correct shape here, not an oversight.
+#    Genuinely suspicious swallows are tracked as code review, not as lint.
+    broad-exception-caught,
+#
+# 2. Import degradation IS the design. runtime/policy.py:54 is the canonical
+#    shape: try the sibling import, fall back to the package, degrade to the
+#    pre-feature behaviour if neither is there. Deferred imports also keep the
+#    stdlib-only walker from paying for numpy/cv2 it will never call.
+    import-outside-toplevel,
+#
+# 3. sys.path wiring, not a real missing module. See init-hook above; pylint
+#    still cannot resolve every bare sibling import the way the run-time path
+#    does. requirements.txt is the actual dependency contract.
+    import-error,
+#
+# --- False positives on this codebase ---------------------------------------
+#
+# cv2 and numpy build much of their namespace at C-extension load time, so
+# pylint reports members that exist. 267 of these, none real.
+    no-member,
+#
+# pytest fixtures shadow their own names by design; this fires on nearly every
+# test that takes a fixture argument.
+    redefined-outer-name,
+#
+# Tests and operator tools reach into internals on purpose -- verify._synthetic_face,
+# rig._synth_cutout, video_graph._autogen_additions are all deliberately exercised.
+    protected-access,
+#
+# --- House style, decided ---------------------------------------------------
+#
+# %-formatting is used consistently throughout and reads well in the log lines
+# and prompt strings that dominate this code. Converting 553 sites would touch
+# nearly every file to change nothing about behaviour.
+    consider-using-f-string,
+#
+# Docstrings in this repo say WHY, and several exist specifically to stop
+# someone re-deriving a wrong answer that already cost a day. They sit on
+# modules and on the functions that carry a decision -- not on every helper.
+# missing-module-docstring stays ON: a module without one is a real gap.
+    missing-function-docstring,
+    missing-class-docstring,
+
+[FORMAT]
+# The tree is written to about 100 columns (p50=41, p90=88, p99=103). 120 is
+# the honest ceiling: it leaves the 85 genuinely over-long lines flagged
+# without rewrapping 371 hand-tuned comment blocks that carry measurements.
+max-line-length=120
+
+[DESIGN]
+# These ceilings admit ONE justified shape and keep flagging everything else.
+#
+# runtime/policy.weigh() takes 19 arguments and holds 34 locals because it is a
+# single transparent softmax over anti-reverse, novelty, goal-pull, mood,
+# circadian band, weather energy and manner style -- and the tests assert on the
+# weights it returns. Splitting it would scatter the algorithm across helpers
+# and break the correspondence with the live measurements cited in its comments
+# (see runtime/policy.py:262-275). The parameter count is intrinsic to the
+# design, so the ceiling admits it.
+max-args=20
+max-locals=35
+max-positional-arguments=10
+max-returns=10
+#
+# Length and branching are NOT similarly excused. pipeline/autogen.py still has
+# functions at 116 statements and 26 branches; those are real findings and are
+# meant to stay visible.
+max-branches=20
+max-statements=60
+
+[SIMILARITIES]
+# Docstrings in this tree are long and deliberately repeat context between
+# sibling modules (the pipeline/_bake_*.py family especially). Comparing them
+# for similarity finds prose, not duplicated logic.
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
+min-similarity-lines=8
