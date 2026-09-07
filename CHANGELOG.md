@@ -204,6 +204,60 @@ private tree and is not published here; ARCHITECTURE now says so rather than dan
   Two code-mapping tools were evaluated first and neither adopted — one reports this document as
   *clean* because line 3 carries a date, and cannot see inside fences.
 
+### Added — one linter, and the findings it left behind
+
+- **`ruff.toml`, and ruff as the single Python linter.** A `.pylintrc` was written first and
+  rejected: it raised complexity ceilings while claiming not to. Ruff also does no type
+  inference, so cv2's C-extension namespace produces no false-positive wall to disable.
+  **250 findings → 0**, of which ~120 are real fixes. Nothing about complexity is raised in
+  config — each function that exceeds a default carries a `# noqa: <rule>  -- why` at its own
+  definition, because a ceiling in a config file silently excuses every function in the repo.
+- **flake8-bandit checks (`S`) are selected.** Four are declined with reasons; `S110`/`S112` are
+  deferred to issue #9, which they independently corroborate — the rule flags three of the four
+  silent swallows that issue catalogues by hand. `PTH105` is declined outright: every
+  `os.replace()` here is the atomic-write primitive behind the single-writer contract.
+
+### Fixed — the viewer crashed on any clone without journals
+
+- **`graph_viewer.html` failed to boot on a fresh clone**, and not gracefully: the detail pane
+  was replaced by a `TypeError` and **three of the four tabs rendered no text at all**. The guard
+  at `:619` tested that a memory record exists; with no journals the export emits
+  `{"available": false}`, which is truthy, so `.retrieval_params` was undefined one property
+  later. Found by rendering the page in a real browser — a `200` with 269 KB of DOM had been
+  reported as healthy for several sessions.
+
+### Fixed — a proxy could write an arbitrary local file into the graph
+
+- **`pipeline/hf_gen._download()` urlopened a URL taken from the proxy's JSON response**, and
+  urllib honours `file://`. A compromised or buggy proxy could have an arbitrary local file
+  written into `data/gen/` as generated media, which `video_graph.build()` then trusts and the
+  viewer renders. Now rejects any scheme but http/https, with a **terminal** error kind: the
+  first version of the fix raised `transient`, which `autogen.py:813` re-queues — and since
+  `_spend_clip` runs only after a successful `generate_clip`, a retry loop there would have
+  billed the vendor repeatedly while never incrementing the local cap.
+  Found by running bandit for the first time: 1187 findings, one real defect.
+
+### Added — the viewer is driven in a real browser, and can show a live walk
+
+- **`scripts/e2e_viewer.py` + `.github/workflows/e2e.yaml`.** `graph_viewer.html` was the one
+  surface nothing tested — it holds no Python, and a static server answers `200` for a page
+  whose JavaScript died before drawing. Four viewports, every lens, tab, control and the
+  scrubber, draining console errors after each interaction. **16 findings before the one-line
+  fix above, 0 after.**
+- **`scripts/live_view.py`** runs the real walker headless (`SDL_VIDEODRIVER=dummy`) with the
+  production flags and re-exports on a timer, so the Now strip and Decision lens track a walk in
+  progress. Windows is needed for the wall, not the walker.
+
+### Changed — imports resolve the same way from either entry point
+
+- `runtime/clip_player.py`, `runtime/stage_render.py` and `director/stage_manager.py` used bare
+  sibling imports, so `import runtime.clip_player` failed while `import runtime.policy`
+  succeeded. Under `tests/conftest.py`, which puts both the root and `runtime/` on the path,
+  that meant `clip_graph` and `runtime.clip_graph` could become **two distinct module objects**
+  with separate `MANIFEST_PATH` values — latent, since no test patches them, but the shape that
+  breaks single-writer by accident. Now package-absolute; `player.py`'s `sys.path` wiring and
+  the bare imports in tests both still work.
+
 ---
 
 ## 0.4.0 — 2026-08-11

@@ -45,7 +45,9 @@ same pass.
 7. `data/clips/video_graph.json` is authoritative. `video_graph.live.json` is a stale local
    artifact that does not exist on hil — ignore it.
 8. `runtime/video_graph.py` is the live graph. `runtime/clip_graph.py` is the older,
-   parallel v2 graph used only by the parked player path — do not confuse them.
+   parallel v2 graph — do not confuse them. It is NOT parked: `pipeline/orchestrate.py:64`,
+   `_bake_liveportrait.py:419,506` and `_bake_animatediff_motion.py:131` all import it, so a
+   change there reaches the generation stack.
 9. The Midjourney generation path is **retired but intact**. It has been returning HTTP 403
    on every image upload since 2026-07-02. Higgsfield replaced it on 2026-08-08.
 10. hil is NOT the Higgsfield session owner — `node` is, with one-time-use refresh tokens.
@@ -142,7 +144,7 @@ see item 4; it binds the modules the loop imports, not the whole directory). **H
 | `circadian.py` | clock layer; bedtime chain, sleep dwell, day-time bedtime-edge exclusion (`:126-159`) | PURE |
 | `pathfind.py` | BFS over transition edges: `next_step` / `shortest_path` / `reachable_poses` | PURE |
 | `video_graph.py` | **the live graph**: node/edge specs, bedtime + autogen merge, `validate()`, `build()` | PURE (writes `video_graph.json`) |
-| `clip_graph.py` | the OLDER v2 clip library (poses/clips + shortest path + manifest) — parked path only | PURE |
+| `clip_graph.py` | the OLDER v2 clip library (poses/clips + shortest path + manifest). Not parked — `pipeline/` imports it in three places | PURE |
 | `clip_player.py` | renders a clip into one panel surface with seam crossfade | HEAVY (opencv/pygame, guarded) |
 | `stage_render.py` | composites portrait + bg + asides into a panel | HEAVY (numpy/cv2) |
 | `crossframe.py` | walk-out-of-A / walk-into-B figure layer | HEAVY (numpy) |
@@ -444,10 +446,17 @@ and `hf_gen.healthy()` returns `(True, 'ok')` right now.
 (LTX FLF2V ~5 h/clip; AnimateDiff moderate motion magnitude). Nothing live imports them.
 
 **PARKED (the v2 "Track-1" show):** `player.py`, `director/stage_manager.py`,
-`director/signals.py`, `pipeline/orchestrate.py`, and the `runtime/` render stack they use
-(`clip_graph`, `clip_player`, `stage_render`, `crossframe`, `rig`, `rig_loop`,
-`behavior_select`, `panels`). Their tasks `lp-player` and `lp-director` are **Disabled**;
-`lp-director` last ran 2026-05-31. This code is well-tested and coherent — it is parked, not rotten.
+`director/signals.py`, and the `runtime/` render stack `player.py` actually imports
+(`clip_player`, `stage_render`, `crossframe`, `rig_loop` at `player.py:37,47,59`). Their tasks
+`lp-player` and `lp-director` are **Disabled**; `lp-director` last ran 2026-05-31. This code is
+well-tested and coherent — it is parked, not rotten.
+
+Three names that used to sit in that list do not belong there, each for a different reason:
+`pipeline/orchestrate.py` and `clip_graph` are **live** (orchestrate imports clip_graph, and so
+do two `_bake_*` modules), while `behavior_select` (604 lines) and `panels` (337) have **zero
+importers anywhere in this repo** — `player.py` does not import either, and `panels.py:23`
+documents a call site, `from panels import load_panels`, that does not exist. They are neither
+parked nor live; nothing runs them at all.
 
 **THROWAWAY:** `_shots/*` (27 one-off render scripts), `pipeline/_probe_*.py`,
 `_predownload.py`. (`_preview_cycle.py` and `_preview_panels.py` were also on this list
