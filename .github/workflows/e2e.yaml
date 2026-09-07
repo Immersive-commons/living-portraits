@@ -17,9 +17,9 @@
 # reported the page healthy. This job is the thing that would have caught it --
 # measured at 16 findings before the fix and 0 after.
 #
-# It borrows polyfetch's environment with `uv run --directory` rather than adding
-# patchright to requirements.txt, so the walker's near-stdlib dependency contract
-# is untouched by a browser-testing tool.
+# Playwright is pulled in per-run with `uvx --with`, never added to
+# requirements.txt, so the walker's near-stdlib dependency contract is untouched
+# by a browser-testing tool.
 
 name: e2e
 
@@ -63,30 +63,18 @@ jobs:
           uv run python runtime/video_graph.py build
           uv run python scripts/export_context_view.py
 
-      - name: Check out polyfetch (browser tooling, kept out of our lockfile)
-        uses: actions/checkout@v4
-        with:
-          repository: qte77/polyfetch-scrape
-          path: .polyfetch
-          # Pin when this settles; floating is acceptable while the tool moves fast
-          # and this job is advisory-adjacent rather than release-gating.
-          ref: main
-
-      # Chromium is the expensive part of this job. Cache it on the browser
-      # tooling's lockfile so a rerun that changes nothing does not re-download.
+      # Chromium is the expensive part of this job. Cache it so a rerun that
+      # changes nothing does not re-download 114 MB.
       - name: Cache Chromium
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ms-playwright-${{ runner.os }}-${{ hashFiles('.polyfetch/uv.lock') }}
-          restore-keys: ms-playwright-${{ runner.os }}-
+          key: ms-playwright-${{ runner.os }}-v1
 
       - name: Install the browser and its system libraries
-        run: |
-          uv run --directory .polyfetch polyfetch doctor --fix
-          # Ubuntu 24.04 renamed several of these with a t64 suffix, so install
-          # them through playwright's own list rather than by hand.
-          uv run --directory .polyfetch python -m patchright install-deps chromium
+        # --with-deps handles Ubuntu 24.04's t64 library renames, which are a
+        # twenty-minute detour to discover by hand.
+        run: uvx --with playwright playwright install --with-deps chromium
 
       - name: Serve the viewer
         run: |
@@ -101,7 +89,7 @@ jobs:
       # TypeError, a control that will not click, in any of four viewports.
       - name: Drive the viewer
         run: |
-          uv run --directory .polyfetch python "$PWD/scripts/e2e_viewer.py" \
+          uvx --with playwright python scripts/e2e_viewer.py \
             http://127.0.0.1:8000 "$PWD/e2e_out"
 
       # Always: on a failure the screenshots ARE the report -- the whole point is

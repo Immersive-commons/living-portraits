@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """e2e_viewer.py -- drive graph_viewer.html in a real browser and report what breaks.
 
-Run with polyfetch's interpreter so patchright + its Chromium are on hand:
+Needs only Playwright, which it does not add to requirements.txt:
 
-    uv run --directory <polyfetch> python /abs/path/e2e_viewer.py <base-url> <out-dir>
+    uvx --with playwright python scripts/e2e_viewer.py <base-url> <out-dir>
 
 WHY THIS EXISTS. graph_viewer.html is the one surface nothing tested. It holds no
 Python, so pytest never sees it, and `curl` reports a healthy 200 on a page whose
@@ -25,8 +25,9 @@ NOT part of `pytest tests/`. It needs a browser and a running server, so it is a
 operator/CI tool in the shape of `health/`, run against a URL you already serve.
 
     python scripts/live_view.py --port 8000 &
-    uv run --directory <polyfetch> python "$PWD/scripts/e2e_viewer.py" \
-        http://127.0.0.1:8000 ./e2e_out
+    uvx --with playwright python scripts/e2e_viewer.py http://127.0.0.1:8000 ./e2e_out
+
+(One-time: `uvx --with playwright playwright install --with-deps chromium`.)
 
 Exits non-zero when it finds anything, so CI can gate on it.
 """
@@ -34,9 +35,51 @@ from __future__ import annotations
 
 import json
 import sys
+import types
 from pathlib import Path
 
-from polyfetch_scrape.render_session import render_session
+import contextlib
+
+from playwright.sync_api import sync_playwright
+
+
+@contextlib.contextmanager
+def browser_session(url, viewport, video_dir=None):
+    """A page with its console errors and network failures captured from byte one.
+
+    Deliberately plain Playwright. An earlier version borrowed a third-party
+    scraping library for this, which meant the project's CI checked out a personal
+    repo at a floating ref in order to run the project's own tests -- a
+    supply-chain dependency in exchange for four listeners and a context manager.
+    """
+    errors: list[str] = []
+    failures: list[str] = []
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        ctx = browser.new_context(
+            viewport={"width": viewport[0], "height": viewport[1]},
+            record_video_dir=video_dir,
+            record_video_size={"width": viewport[0], "height": viewport[1]} if video_dir else None,
+        )
+        page = ctx.new_page()
+        page.on("console", lambda m: errors.append(f"{m.type}: {m.text}") if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(f"uncaught: {e}"))
+        page.on("requestfailed", lambda r: failures.append(f"{r.url} {r.failure}"))
+        page.on("response", lambda r: failures.append(f"{r.url} -> {r.status}") if r.status >= 400 else None)
+        try:
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            yield types.SimpleNamespace(page=page, console_errors=errors,
+                                        network_failures=failures)
+        finally:
+            # video.path() needs the driver alive AND the context closed. Reading it
+            # after pw.stop() raises "Event loop is closed" -- the bug behind
+            # qte77/polyfetch-scrape#199, worth not reproducing here.
+            vid = page.video if video_dir else None
+            ctx.close()
+            if vid:
+                with contextlib.suppress(Exception):
+                    print(f"  video -> {vid.path()}")
+            browser.close()
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "./e2e_out")
@@ -207,14 +250,8 @@ for vp_name, w, h in VIEWPORTS:
     print(f"\n=== {vp_name}  {w}x{h} ===")
     try:
         vid = str(OUT / "video") if vp_name == "desktop-landscape" else None
-        with render_session(f"{BASE}/graph_viewer.html",
-                            viewport=(w, h),
-                            wait_until="networkidle",
-                            record_video_dir=vid,
-                            record_video_size=(w, h) if vid else None) as s:
+        with browser_session(f"{BASE}/graph_viewer.html", (w, h), vid) as s:
             exercise(s, vp_name)
-        if vid:
-            print(f"  video -> {getattr(s, 'video_path', None)}")
     except Exception as e:
         note(vp_name, "session", "fatal", e)
 
