@@ -526,7 +526,6 @@ def _parse_char_md(slug: str, text: str) -> CastEntry:
             theme = line.split(":", 1)[1].strip().rstrip(".")
             continue
         if not in_body and line.lower().startswith("voice:"):
-            line.split(":", 1)[1].strip().rstrip(".") or None
             in_body = True  # persona starts after the Voice line
             continue
         if in_body:

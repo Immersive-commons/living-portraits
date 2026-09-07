@@ -86,8 +86,12 @@ ignore = [
     # tasks and the deploy already invoke these.
     "S603", "S607",
     #
-    # director/llm.py and pipeline/hf_gen.py reach their own gateways over
-    # urllib with URLs from config, not from user input.
+    # director/llm.py reaches its gateway over urllib with a URL from config.
+    # NOT a blanket exemption: pipeline/hf_gen._download() urlopens a URL taken
+    # from the PROXY'S RESPONSE, which is a different trust level, and urllib
+    # honours file:// -- that one carries an explicit scheme check at the call
+    # site rather than relying on this line. If another response-derived URL
+    # appears, it needs the same check, not this ignore.
     "S310",     # suspicious urlopen
     #
     # Every os.replace() in this tree is the ATOMIC-WRITE primitive -- the
