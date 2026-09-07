@@ -98,6 +98,21 @@ gap, closed and then verified by cloning into a scratch directory and running it
   container. This is also the first time `_preview_graph.py` has been executed by anything other
   than the production host; ROADMAP lists it as the #1 untested risk, and running it is not the
   same as testing it, but it is no longer only reachable from `hil`.
+### Added — the viewer is tested in a real browser
+
+- **`scripts/e2e_viewer.py` + `.github/workflows/e2e.yaml`.** `graph_viewer.html` was the one
+  surface nothing tested: it holds no Python, so pytest never sees it, and a static server
+  answers `200` for a page whose JavaScript died before drawing anything. Per viewport — desktop
+  landscape, tablet portrait, phone portrait, phone landscape — it clicks all six lenses, all
+  four tabs, both checkboxes and both buttons, drags the provenance scrubber, clicks a node on
+  the canvas, and drains console errors, uncaught JS exceptions and failed requests after every
+  interaction. 68 screenshots per run, exits non-zero on any finding.
+  **Measured against the bug it was written for: 16 findings before the one-line fix, 0 after.**
+  Plain Playwright, pulled per-run with `uvx --with`, never added to `requirements.txt` — an
+  earlier draft borrowed a third-party scraping library, which meant this project's CI checked
+  out a personal repo at a floating ref to run this project's own tests.
+  AGENTS.md said "probe the DOM, do not eyeball a screenshot"; that argues against TRUSTING a
+  screenshot, not against taking one — taking one is how you learn there is something to probe.
 
 ---
 
