@@ -8,15 +8,13 @@ confirmed is marked **(inferred)**. Closing section lists what I did not verify.
 `graph_provenance`, `edge_style`, `reflect`), two new single-writer data contracts, two
 dwell-dependent policy terms, the `health/` detector suite, and the deploy ledger.
 
-**Line citations verified against `3c99ff5` (2026-09-06.)** They had drifted 50-500 lines
-in sections 1 and 8 — the v0.4.0 pass re-checked the module and contract claims but not the
-line numbers, and `tick()` had moved 219 lines while still being cited at its old one. All
-of them are now exact as of that commit, which makes drift computable rather than confessed:
+**Line citations are checked by a test, not by hope.** They had drifted 50-500 lines in
+sections 1 and 8 — the v0.4.0 pass re-checked the module and contract claims but not the line
+numbers, and `tick()` had moved 219 lines while still being cited at its old one.
 
-    git diff 3c99ff5..HEAD -- director/heartbeat.py runtime/ _preview_graph.py
-
-Anything that touches those files is a prompt to re-run `tests/test_doc_citations.py`, which
-checks every citation that names a symbol. Range citations (`file.py:12-40`) point at blocks
+`tests/test_doc_citations.py` now resolves every citation that names a symbol, with `ast`,
+and fails when one stops pointing at what it names. So the honest statement about this
+document is no longer a date or a commit — it is that the suite is green. Range citations (`file.py:12-40`) point at blocks
 rather than definitions and cannot be checked mechanically; they were verified by hand in the
 same pass.
 
