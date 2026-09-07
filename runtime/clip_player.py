@@ -43,7 +43,7 @@ from collections.abc import Iterable, Iterator
 
 import numpy as np
 
-from clip_graph import CLIPS_DIR, Clip
+from runtime.clip_graph import CLIPS_DIR, Clip
 
 # ---- optional heavy deps, import-guarded ---------------------------------
 # pygame is present on SC2's .venv but not on every dev box; opencv is only

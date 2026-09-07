@@ -53,6 +53,8 @@ import numpy as np
 # renderer so the rig view and this view share identical RGB<->surface plumbing
 # (and the same import-guarded pygame/opencv handling).
 from clip_player import (  # type: ignore
+from runtime.clip_player import (  # type: ignore
+    DummySurface,
     _HAVE_CV2,
     _HAVE_PYGAME,
     _blit_rgb_to_surface,

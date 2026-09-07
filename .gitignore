@@ -13,3 +13,4 @@ pipeline/vendor/
 !_article/assets/
 !_article/assets/*.png
 .ruff_cache/
+.pytest_cache/

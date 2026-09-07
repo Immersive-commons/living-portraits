@@ -16,7 +16,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-import signals  # director/ is on sys.path when run as a script
+from director import signals  # director/ is on sys.path when run as a script
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPTS = ROOT / "prompts"

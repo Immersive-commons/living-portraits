@@ -122,8 +122,16 @@ being discarded by the generator.
 `_hosting/PROPOSAL.md`, already costed. Cloudflare R2 on a custom domain, **$0/month**, Vercel
 never in the path.
 
-The blocker is not the host: `graph_viewer.html:127` renders every node as a full-size PNG, so a
-cold load pulls **~355 MB**. Transcode first (GIF→h264 measured ~20× on 10 real clips) and the
+~~The blocker is not the host: `graph_viewer.html:127` renders every node as a full-size PNG, so
+a cold load pulls **~355 MB**.~~ **Retracted 2026-09-06 — this stopped being true when the viewer
+was rewritten in `dcd6fc3` and the roadmap's cost model was not updated with it.** The viewer now
+draws nodes as `shape:"dot", size:12` (`graph_viewer.html:283`); the only two `<img>` uses left
+are in the *detail* pane for the selected node, both `loading="lazy"`
+(`graph_viewer.html:543`, `:567`). So a cold load pulls the JSON and nothing else, and the
+355 MB figure describes a viewer that no longer exists. The transcode below is still worth doing
+for the per-clip previews, but it is no longer a blocker on publishing.
+
+Transcode (GIF→h264 measured ~20× on 10 real clips) and the
 published footprint is 332 MB with a 7.2 MB session. Freshness is a push from
 `autogen._rebuild_graph()` with content-addressed keys, uploading `graph.json` **last** so the
 index never points at an object that is not up yet.
@@ -139,7 +147,7 @@ worth doing.
 
 From the map's risk ranking, not from a desire for coverage.
 
-1. **`_preview_graph.py`: 460 lines, zero tests** — the entire production render loop. Every
+1. **`_preview_graph.py`: 506 lines, zero tests** — the entire production render loop. Every
    behavioural bug the git log records (reverse pendulum, frozen walk, dark panels) lived here.
    Test `_pick`, dwell accounting, and graph hot-reload at minimum.
 2. **`heartbeat.propose_pose`** — untested, and it is what spends money downstream.

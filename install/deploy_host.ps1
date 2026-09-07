@@ -16,9 +16,9 @@
 #                    EXCLUDING .venv* / data / *.png / *.gif / *.log / *.mp4 /
 #                    __pycache__, so the scp payload is exactly the runtime code.
 #   3. COPY       -- scp -r the staged tree to <RemoteRoot> on the host, then
-#                    regenerate run_player.bat as ASCII on the host with the
-#                    correct RemoteRoot baked in (the committed .bat hardcodes
-#                    the SC2 immer path, so it is rewritten per-host here).
+#                    write run_player.bat as ASCII on the host with the correct
+#                    RemoteRoot baked in. There is no committed .bat -- step 3
+#                    is the only place it comes from.
 #   4. VENV       -- create the runtime venv (py -3.12 -m venv .venv) on the host
 #                    and pip install the runtime deps:
 #                    pygame opencv-python-headless numpy imageio-ffmpeg Pillow.
@@ -131,9 +131,11 @@ $RUNTIME_DIRS = @(
 $RUNTIME_FILES = @(
     'player.py'     # the frameless dual-panel player (lp-player runs this)
 )
-# run_player.bat is NOT scp'd -- it is regenerated ASCII on the host (step 3)
-# with the correct RemoteRoot baked in, because the committed copy hardcodes the
-# SC2 immer path. EXCLUDED from the show entirely: data\ (runtime state + clips),
+# run_player.bat is NOT scp'd -- it is written ASCII on the host (step 3) with
+# the correct RemoteRoot baked in. There is no committed copy to scp: one used to
+# exist at the repo root, was never invoked (the scheduled task supplies its own
+# WorkingDirectory), and was deleted 2026-09-06.
+# EXCLUDED from the show entirely: data\ (runtime state + clips),
 # *.png / *.gif (portraits + demo media), *.log, .venv* (rebuilt per host),
 # __pycache__, gallery.py + tests\ (dev-only; not part of the runtime show).
 
@@ -359,11 +361,13 @@ $null = Step 'copy runtime tree to host + regenerate run_player.bat' {
         }
     }
 
-    # 3c. Regenerate run_player.bat ASCII on the host with the correct RemoteRoot.
-    # The committed .bat hardcodes the SC2 immer path + uses python.exe; we write
-    # a per-host copy that cd's into RemoteRoot and runs pythonw.exe (windowless,
-    # matching how install_tasks.ps1 launches the player). Out-File ASCII so no
-    # BOM/CRLF surprises on the Windows-codepage host.
+    # 3c. Write run_player.bat ASCII on the host with the correct RemoteRoot.
+    # There is no committed .bat to copy -- this is the only place it comes from.
+    # (One used to exist at the repo root; it was never invoked, because the
+    # scheduled task supplies its own WorkingDirectory. Deleted 2026-09-06.)
+    # We write a per-host copy that cd's into RemoteRoot and runs pythonw.exe
+    # (windowless, matching how install_tasks.ps1 launches the player). Out-File
+    # ASCII so no BOM/CRLF surprises on the Windows-codepage host.
     $batBody = @"
 @echo off
 cd /d $RemoteRoot
