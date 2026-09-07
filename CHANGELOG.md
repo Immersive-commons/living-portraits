@@ -187,6 +187,22 @@ private tree and is not published here; ARCHITECTURE now says so rather than dan
 - **`.pylintrc`**, encoding what this project decided on purpose — the fail-open contract, the
   import-degradation design, the sys.path wiring — each with its reason written next to it, and
   with the genuine findings deliberately left switched on. 7.75 → 9.71.
+### Added — the citations are checked by a machine now
+
+- **`tests/test_doc_citations.py`.** ARCHITECTURE's whole method is that every claim carries a
+  `file.py:line`, and its header admitted they "may have drifted by a few lines". Measured, it
+  was **16 citations, drifted 50 to 500 lines** — `tick()` had moved 219 while still being cited
+  at its old one. The obvious check catches none of this: all 75 citations pass "the file exists
+  and the line is in range" today. So this resolves SYMBOLS with `ast` and compares.
+  It handles two conventions a generic tool misses: the fenced call-flow diagrams, where 7 of
+  the drifts lived, and the ~100 bare `:NNN` anchors that inherit their filename from the anchor
+  before them. Binding is before-only — nearest-match produced three false reports on rows
+  carrying several anchors.
+- **All of it fixed in the same pass**: 11 definition-site citations, 13 ranges and interior
+  anchors resolved by hand, and `_build_user_prompt` in the findings doc. No baseline was kept;
+  a recorded ledger in `tests/` is a second, hidden copy of a fact that belongs in the document.
+  Two code-mapping tools were evaluated first and neither adopted — one reports this document as
+  *clean* because line 3 carries a date, and cannot see inside fences.
 
 ---
 
