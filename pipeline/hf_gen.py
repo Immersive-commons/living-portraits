@@ -134,9 +134,16 @@ def _download(url, out_path, timeout_s=300):
     """
     scheme = urllib.parse.urlparse(url).scheme.lower()
     if scheme not in ("http", "https"):
+        # NOT `transient`. autogen re-queues everything except a terminal kind as
+        # "approved" (autogen.py:813), and _spend_clip runs only AFTER
+        # generate_clip returns (autogen.py:707-709). So a retryable failure here
+        # is the worst possible shape: _run_create has already billed Higgsfield
+        # 7.5 credits, the local budget never increments, CLIP_DAILY_CAP never
+        # trips, and the next run does it again. A proxy handing back a
+        # non-http URL will keep doing so; retrying spends money to learn nothing.
         raise HFGenError(
             "proxy returned a %s:// URL; only http/https are fetched" % (scheme or "relative"),
-            kind="transient")
+            kind="refused")
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(out_path.suffix + ".part")
