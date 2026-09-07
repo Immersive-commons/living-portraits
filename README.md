@@ -108,7 +108,12 @@ hidden failures:
 
 ## Running the wall
 
-![Both panels running: idle breathing, then a character walks out of one frame and into the next](demo.gif)
+![Two framed portraits; both frames then stand empty; one portrait returns](demo.gif)
+
+*Recorded 2026-07-16, so it shows Seraphina on a panel — today the wall runs
+Phineas and MAXX, and she is a node with no panel (see ROADMAP). The empty
+middle is not a dropped frame: it is the gap between a character walking out of
+one frame and arriving in the other, which is the thing a still cannot show.*
 
 Two panels, the real 448×256 stage. A still of this proves nothing — the breath,
 the blink, the gaze drift and the cross-frame walk only read as motion over time,
