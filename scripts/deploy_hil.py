@@ -134,7 +134,7 @@ def plan(rels, loc, rem):
 
 def push(files):
     """scp each file, creating parent dirs on the host as needed."""
-    dirs = sorted({str(Path(f).parent).replace("\\", "/") for f in files if Path(f).parent != Path(".")})
+    dirs = sorted({str(Path(f).parent).replace("\\", "/") for f in files if Path(f).parent != Path()})
     for d in dirs:
         _run(["ssh", HOST, 'cmd /c if not exist "%s\\%s" mkdir "%s\\%s"'
               % (REMOTE.replace("/", "\\"), d.replace("/", "\\"),

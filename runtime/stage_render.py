@@ -89,8 +89,7 @@ def slugify(char_name: str) -> str:
     to a single underscore so a future 'Madame X' resolves to 'madame_x'.
     """
     s = (char_name or "").strip().lower()
-    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
-    return s
+    return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
 
 
 # --------------------------------------------------------------------------- #

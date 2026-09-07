@@ -320,10 +320,10 @@ def test_a_mood_with_no_band_leaves_weights_byte_identical():
 def test_weary_prefers_the_saunter_and_restless_prefers_the_storm():
     out = _pair()
     styles = es.index(out)
-    weary = dict((e["id"], w) for e, w in policy.weigh("hub", out, out, mood="weary",
-                                                       styles=styles))
-    restless = dict((e["id"], w) for e, w in policy.weigh("hub", out, out, mood="restless",
-                                                          styles=styles))
+    weary = {e["id"]: w for e, w in policy.weigh("hub", out, out, mood="weary",
+                                                       styles=styles)}
+    restless = {e["id"]: w for e, w in policy.weigh("hub", out, out, mood="restless",
+                                                          styles=styles)}
     assert weary["x/saunter"] > weary["x/storm"]
     assert restless["x/storm"] > restless["x/saunter"]
 
@@ -337,8 +337,8 @@ def test_free_text_mood_reaches_the_style_layer_through_the_energy_bucket():
     assert policy._style_band(None, "fixated") == "fixated"            # declared band wins
     out = _pair()
     styles = es.index(out)
-    w = dict((e["id"], x) for e, x in policy.weigh("hub", out, out, mood="feral devotion",
-                                                   styles=styles))
+    w = {e["id"]: x for e, x in policy.weigh("hub", out, out, mood="feral devotion",
+                                                   styles=styles)}
     assert w["x/storm"] > w["x/saunter"]
 
 
@@ -347,8 +347,8 @@ def test_style_never_overturns_the_anti_reverse_fix():
     under the band that loves storming, must still lose to the sauntering alternative."""
     out = _pair()
     styles = es.index(out)
-    w = dict((e["id"], x) for e, x in policy.weigh(
-        "hub", out, out, mood="restless", styles=styles, prev_node="a"))
+    w = {e["id"]: x for e, x in policy.weigh(
+        "hub", out, out, mood="restless", styles=styles, prev_node="a")}
     assert w["x/storm"] < w["x/saunter"]
 
 
@@ -357,17 +357,17 @@ def test_style_never_overturns_the_goal_gradient():
     graph = [*out, {"id": "x/b2goal", "kind": "transition", "label": "b2g", "from": "b", "to": "goalP", "motion_prompt": ""}]
     styles = es.index(graph)
     # goal is reachable only through the SAUNTER edge; the storm-loving band must still walk it
-    w = dict((e["id"], x) for e, x in policy.weigh(
-        "hub", out, graph, mood="restless", goal="goalP", route="beeline", styles=styles))
+    w = {e["id"]: x for e, x in policy.weigh(
+        "hub", out, graph, mood="restless", goal="goalP", route="beeline", styles=styles)}
     assert w["x/saunter"] > w["x/storm"]
 
 
 def test_style_never_overturns_novelty():
     out = _pair()
     styles = es.index(out)
-    w = dict((e["id"], x) for e, x in policy.weigh(
+    w = {e["id"]: x for e, x in policy.weigh(
         "hub", out, out, mood="restless", styles=styles,
-        recent_nodes=["a", "a", "a", "a"]))
+        recent_nodes=["a", "a", "a", "a"])}
     assert w["x/storm"] < w["x/saunter"]
 
 
@@ -375,7 +375,7 @@ def test_excluded_edges_stay_at_zero_and_a_leaf_never_strands():
     out = _pair()
     styles = es.index(out)
     w = policy.weigh("hub", out, out, mood="weary", styles=styles, exclude={"h2a"})
-    assert dict((e["id"], x) for e, x in w)["x/storm"] == 0.0
+    assert {e["id"]: x for e, x in w}["x/storm"] == 0.0
     # everything masked -> the never-strand fallback still fires, untouched by styling
     flat = policy.weigh("hub", out, out, mood="weary", styles=styles,
                         exclude={"h2a", "h2b"})

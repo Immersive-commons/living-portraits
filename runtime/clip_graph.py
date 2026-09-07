@@ -123,7 +123,7 @@ class Clip:
     @classmethod
     def from_dict(cls, d: dict) -> Clip:
         # Tolerate extra keys (forward-compat with whatever the verify gate stamps on).
-        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
         return cls(**{k: v for k, v in d.items() if k in known})
 
     def key(self) -> str:
@@ -189,7 +189,7 @@ class ClipGraph:
         # Dijkstra. Tiny graph (7 nodes), so a simple O(V^2) scan is plenty and
         # avoids pulling in heapq subtleties around the comparator.
         dist: dict[str, float] = {n: float("inf") for n in self._edges}
-        prev: dict[str, tuple[str, Clip] | None] = {n: None for n in self._edges}
+        prev: dict[str, tuple[str, Clip] | None] = dict.fromkeys(self._edges)
         dist[from_node] = 0.0
         unvisited = set(self._edges)
 

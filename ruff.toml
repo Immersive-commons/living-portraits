@@ -29,6 +29,11 @@ select = [
     "UP",     # pyupgrade
     "RUF",    # ruff's own
     "PL",     # the pylint port: complexity + real logic checks
+    "S",      # flake8-bandit. CodeFactor runs bandit separately, so selecting the
+              # same checks here means we see them first, in the tool we already gate on.
+    "C4",     # comprehension rewrites
+    "RET",    # return-statement simplifications
+    "PTH",    # os.path -> pathlib
     # C90 (mccabe) is deliberately NOT selected: it measures the same functions
     # PLR0912 already flags, so every dense function would need two noqas saying
     # the same thing. One complexity signal, not two.
@@ -64,6 +69,36 @@ ignore = [
     # weighting any clearer.
     "PLR2004",  # magic-value-comparison
     #
+    # --- bandit checks that are wrong FOR THIS CODEBASE -------------------------
+    #
+    # 1017 of them, and asserts are what a test is. The pipeline/ modules also
+    # assert on generation preconditions, where an AssertionError killing a paid
+    # clip is the intended outcome.
+    "S101",     # assert
+    #
+    # Pose selection is not cryptography. runtime/policy.py picks the next clip
+    # from a seeded rng precisely so a walk is reproducible in a test.
+    "S311",     # non-cryptographic random
+    #
+    # Every subprocess call here is a fixed argv to a known binary -- schtasks,
+    # git, ssh, python -- with no user input in it, and shell=True appears
+    # nowhere in the tree. The PATH lookup S607 objects to is how the scheduled
+    # tasks and the deploy already invoke these.
+    "S603", "S607",
+    #
+    # director/llm.py and pipeline/hf_gen.py reach their own gateways over
+    # urllib with URLs from config, not from user input.
+    "S310",     # suspicious urlopen
+    #
+    # Every os.replace() in this tree is the ATOMIC-WRITE primitive -- the
+    # tmp-then-rename that makes the single-writer contract safe, in
+    # heartbeat._atomic_write, lived.flush, graph_provenance, clip_graph,
+    # export_context_view, gallery and backfill_lived. Path.replace() is the same
+    # syscall, so this rule offers style at the cost of editing the one thing in
+    # this codebase where a mistake is silent and unreproducible. Several
+    # docstrings also name `os.replace` explicitly. Declined, not deferred.
+    "PTH105",   # os.replace
+    #
     # The walker writes pose/<char>.json and mtime-caches intent.json at module
     # scope; the graph is hot-reloaded into a module-level binding. Those caches
     # are the reason the 10 fps loop does zero I/O per frame. Threading them
@@ -97,6 +132,20 @@ ignore = [
     "E741",     # `l` as a variable name.
     "PLR0913",  # over the max-args=8 set below, under weigh()'s 18.
     "RUF001",   # an ambiguous unicode char in a string literal.
+    "PTH108", "PTH110", "PTH116", "PTH123",
+                # the ordinary half of the pathlib migration -- os.unlink,
+                # os.path.exists, os.stat, open(). Mechanical, no behaviour
+                # change, ~14 sites. Worth doing; not worth doing blind in the
+                # same pass that adopted the rule.
+    "S110", "S112",
+                # try/except/pass and try/except/continue, 43 of them. NOT a
+                # blanket exemption for the fail-open contract: most are
+                # principled one-line guards, but issue #9 catalogues four on the
+                # provenance path that swallow real logic silently, and this rule
+                # flags three of those four by itself
+                # (graph_provenance.py:268, video_graph.py:118, :123).
+                # Deferred because the fix is per-site judgement about a
+                # production wall, not a sweep. Delete this entry when #9 closes.
 ]
 
 # NOTHING about complexity is raised here. Ruff's defaults stand, and every

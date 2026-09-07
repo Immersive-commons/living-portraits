@@ -452,7 +452,7 @@ def build(now=None):
         memory_by_char[c] = memory_section(c, block.get("node"), hops, now)
 
     live_chars = [c for c in characters if (now_by_char.get(c) or {}).get("node")]
-    view = {
+    return {
         "schema": SCHEMA,
         "generated_at": now,
         "generated_iso": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
@@ -503,7 +503,6 @@ def build(now=None):
             "manner are all reconstructed exactly.",
         ],
     }
-    return view
 
 
 def main():

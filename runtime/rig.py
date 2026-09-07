@@ -119,7 +119,7 @@ KNOWN_PARAMS = (
 
 def _neutral_params() -> dict:
     """All-zero params == rest pose, except eyes fully open (Open == 1)."""
-    p = {k: 0.0 for k in KNOWN_PARAMS}
+    p = dict.fromkeys(KNOWN_PARAMS, 0.0)
     p["ParamEyeLOpen"] = 1.0
     p["ParamEyeROpen"] = 1.0
     return p
@@ -761,7 +761,7 @@ def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence o
 
     # --- per-feature motion: assert on SYNTH (guaranteed contrast) ----------
     # A neutral param set (eyes open, no sway) so each test isolates ONE deformer.
-    base = {k: 0.0 for k in KNOWN_PARAMS}
+    base = dict.fromkeys(KNOWN_PARAMS, 0.0)
     base["ParamEyeLOpen"] = 1.0
     base["ParamEyeROpen"] = 1.0
 
