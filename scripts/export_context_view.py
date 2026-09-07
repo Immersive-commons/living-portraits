@@ -155,6 +155,10 @@ CODEMAP = [
     ("view", "scripts/export_context_view.py",
      "This file: joins the six single-writer stores plus two Python-only derivations into one JSON.",
      "-"),
+    ("view", "scripts/live_view.py",
+     "Runs the walker headless and re-exports on a timer, so the artifact tracks a walk in "
+     "progress instead of showing whatever was true when someone last ran the export by hand.",
+     "Now strip / Decision lens (live)"),
     ("view", "graph_viewer.html",
      "The artifact. Six lenses over one graph, a scrubber over transaction time, and the live now strip.",
      "-"),
