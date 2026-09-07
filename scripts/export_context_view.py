@@ -149,12 +149,21 @@ CODEMAP = [
     ("proof", "health/checks.py",
      "Eight deterministic detectors, one per incident a human had to notice. Off-by-choice is a PASS.",
      "Honesty tab"),
+    ("proof", "scripts/e2e_viewer.py",
+     "Drives graph_viewer.html in a real browser across four viewports -- every lens, tab, "
+     "control and the scrubber -- and reports the console errors a 200 hides. The viewer is "
+     "the only surface pytest cannot reach.",
+     "Everything in this artifact"),
     ("proof", "tests/test_context_graph_probe.py",
      "Replays real decisions against the retrieval layer and asserts it reaches past `tail -5`.",
      "Memory tab"),
     ("view", "scripts/export_context_view.py",
      "This file: joins the six single-writer stores plus two Python-only derivations into one JSON.",
      "-"),
+    ("view", "scripts/live_view.py",
+     "Runs the walker headless and re-exports on a timer, so the artifact tracks a walk in "
+     "progress instead of showing whatever was true when someone last ran the export by hand.",
+     "Now strip / Decision lens (live)"),
     ("view", "graph_viewer.html",
      "The artifact. Six lenses over one graph, a scrubber over transaction time, and the live now strip.",
      "-"),
