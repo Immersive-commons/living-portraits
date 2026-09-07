@@ -94,6 +94,9 @@ hidden failures:
 | `prompts/` | Character specs (`characters/*.json`), the bedtime routine, stage directives. |
 | `graph_viewer.html` | The six-lens viewer. Static; reads one exported JSON. |
 | `panels.yaml` | Panel geometry and palette. Moving a panel is a config change, not a code change. |
+| `ruff.toml` | The single linter's config. Every `ignore` names a decision in AGENTS.md; complexity is justified at each function, never raised here. |
+| `requirements.lock` | `uv pip compile --universal` of the above, `win32` markers included. CI installs from it; `requirements.txt` stays the contract. |
+| `.github/workflows/` | `ci.yaml` runs the four-command chain and holds the test counts as floors. `e2e.yaml` drives the viewer in a real browser on pull requests. |
 
 ## Where to read next
 
