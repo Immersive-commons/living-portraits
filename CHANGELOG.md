@@ -77,6 +77,28 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
+### Added — the viewer can show a walk in progress
+
+- **`scripts/live_view.py`.** The viewer was never actually static: `context_view.json` already
+  carried a `now` section per character — node, dwell, hop distances, frontier, and the Decision
+  lens's live weights — and `graph_viewer.html` already drew it. What was missing is that nothing
+  re-ran the export while the walker walked, so the page showed whatever was true the last time
+  someone typed a command. This runs the three pieces together: the real `_preview_graph.py`
+  headless under `SDL_VIDEODRIVER=dummy` with the `lp-preview` task's own flags, the exporter on
+  a timer, and an http server on the repo root.
+
+  It adds no writer. The walker owns `pose/<char>.json` and the lived record; the exporter is
+  read-only over production by contract, so looping it is safe — and the module docstring says
+  so, because the concurrency design has no lock and depends on that rule.
+
+  **Windows is needed for the wall, not the walker.** What is Windows-first is pinning a
+  borderless SDL window at desktop origin so an LED sending card can grab sub-rects out of it.
+  The walk itself is portable, and the first headless run showed Phineas going
+  `anchor → empty → nightclothes → sleep` — the circadian bedtime chain — inside a Linux
+  container. This is also the first time `_preview_graph.py` has been executed by anything other
+  than the production host; ROADMAP lists it as the #1 untested risk, and running it is not the
+  same as testing it, but it is no longer only reachable from `hil`.
+
 ---
 
 ## 0.4.0 — 2026-08-11

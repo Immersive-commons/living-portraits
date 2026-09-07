@@ -72,6 +72,7 @@ under its own policy, acts. Merging the two lets a repair quietly redefine what
 | The graph itself — poses, clips, edges | `runtime/video_graph.py` | `NODE_SPECS` / `EDGE_SPECS` are the source of truth. Edges are **discovered by globbing clips on disk**, so a spec with no media silently produces no edge. |
 | What a character remembers | `runtime/lived.py`, `runtime/journal_score.py`, `director/reflect.py` | Journals are append-only and single-writer. |
 | The viewer | `graph_viewer.html`, `scripts/export_context_view.py` | The export is **read-only over production by contract**: never call `build()`, never write back into `video_graph.json`, never touch a journal. |
+| Watching a walk happen | `scripts/live_view.py` | Runs the real walker headless plus the exporter on a timer. It adds no writer — that is why it is safe to loop. Keep it that way. |
 | Clip generation | `pipeline/` | Needs a CUDA GPU and `requirements-gen.txt`. Almost certainly not your task. |
 | Panel geometry or colour | `panels.yaml` | Config, not code. Do not hardcode a rect. |
 
