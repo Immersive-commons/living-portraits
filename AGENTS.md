@@ -15,7 +15,7 @@ one, written against the live production host with every claim cited
 
 ```bash
 python -m pip install -r requirements.txt
-python -m pytest tests/ -q                 # expect: 304 passed, 40 skipped
+python -m pytest tests/ -q                 # expect: 303 passed, 41 skipped
 python scripts/seed_demo_media.py          # placeholder media, ~118 files
 python runtime/video_graph.py build        # expect: 20 nodes, 98 edges, 0 errors
 python scripts/export_context_view.py
@@ -40,11 +40,19 @@ fail immediately or reproducibly. If your change needs to write somewhere anothe
 component already writes, that is a design conversation, not an implementation
 detail.
 
-**2. `runtime/` is pure stdlib and must stay import-safe.** The 10 fps render
-loop imports it. A network call, an LLM client, or a heavy dependency introduced
-anywhere under `runtime/` is a stutter on a physical wall. Everything with a
-socket or a model in it lives in `director/`. This line is real and it is not
-negotiable for convenience.
+**2. The walker's import set is pure stdlib and must stay import-safe.** The 10
+fps render loop imports `circadian`, `lived`, `mind`, `policy` and — soft, in a
+try/except — `edge_style`, and `mind` pulls in `pathfind`. It does NOT import
+`video_graph`: it reads the built JSON. A network call, an LLM client, or a
+heavy dependency introduced into any of those is a stutter on a physical wall.
+Everything with a socket or a model in it lives in `director/`. This line is
+real and it is not negotiable for convenience.
+
+Note the scope: it is those seven modules, not the whole directory. `runtime/`
+also holds the rendering half — `rig`, `clip_player`, `stage_render`,
+`crossframe`, `rig_loop`, `capture_demo` — which imports numpy and cv2 at module
+level and always has. ARCHITECTURE.md's module table marks each file PURE or
+HEAVY; that table is the authority, and this rule is about the PURE ones.
 
 **3. Walk-safety is enforced at build, and the build refusing to save is correct
 behaviour.** Every pose needs a way out: idle loops plus at least one transition
@@ -75,6 +83,13 @@ under its own policy, acts. Merging the two lets a repair quietly redefine what
 | Clip generation | `pipeline/` | Needs a CUDA GPU and `requirements-gen.txt`. Almost certainly not your task. |
 | Panel geometry or colour | `panels.yaml` | Config, not code. Do not hardcode a rect. |
 
+**`_preview_graph.py` is the production player**, despite the `_preview_` prefix
+that groups it with throwaway demos. It is what the `lp-preview` scheduled task
+runs; `player.py` is the parked v2 path. Do not rename it: `stop_portraits.ps1`,
+`lp_watchdog_preview.ps1` and `start_portraits.ps1` all match it as a **literal
+string** in a running command line, as does the registered task action. Renaming
+it is a coordinated host-side change, not a refactor.
+
 `runtime/clip_graph.py` is an **older parallel v2 graph** used only by the parked
 player path. `runtime/video_graph.py` is the live one. They look similar and they
 are not interchangeable — check which one your caller actually uses.
@@ -87,10 +102,18 @@ are not interchangeable — check which one your caller actually uses.
    specs. Zero walk-safety errors.
 3. `python scripts/export_context_view.py` then reload the viewer — if you
    touched anything the six lenses read.
-4. For anything visual, **probe the DOM, do not eyeball a screenshot.** A CSS bug
+4. **Check the thing, not something adjacent to it.** Every green signal here can
+   be green while the thing is broken: `pytest` exits 0 having collected nothing,
+   a static server answers 200 for a page whose JavaScript died before drawing,
+   and `capture_demo --selftest` proves the compositor without running the
+   walker. Both bugs found in the 2026-09 pass were invisible for the same
+   reason — the check was a proxy. Run the walker; open the page.
+5. For anything visual, **probe the DOM, do not eyeball a screenshot.** A CSS bug
    in this repo's history stacked a label and its percentage at the same x; it
    was found by comparing two elements' bounding boxes and would not have been
-   found by looking. Screenshots confirm; they do not falsify.
+   found by looking. Screenshots confirm; they do not falsify — but take one
+   anyway, because it is how you learn there is something to probe.
+   `scripts/e2e_viewer.py` does both.
 
 ## Things that will waste your time
 
@@ -111,6 +134,16 @@ are not interchangeable — check which one your caller actually uses.
   403 on every upload since 2026-07-02. Higgsfield replaced it. Do not debug it.
 - **`data/clips/video_graph.live.json`**, if you ever see one, is a stale local
   artifact that does not exist in production. Ignore it.
+- **This repo is generated, not authored.** It is a curated subset of a private
+  monorepo, and `scripts/release.py sync` copies private → public, deleting any
+  file that exists only here (`OSS_ONLY` is just `LICENSE` and `NOTICE`). A
+  change landed only in this repo is reverted, silently, on the next release.
+  Land it in the private tree, or add the path to `OSS_ONLY` there.
+- **You do not need Windows to run the walker.** `SDL_VIDEODRIVER=dummy` runs the
+  real `_preview_graph.py` with the production flags on any OS — pygame blits
+  every frame to a memory buffer instead of an LED card. What is Windows-first is
+  pinning a borderless window at desktop origin so a sending card can grab
+  sub-rects out of it. That is hardware plumbing, not the system.
 
 ## Writing
 
