@@ -29,6 +29,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -119,6 +120,23 @@ def _run_create(model, args, exts, files, *, timeout_s=_TIMEOUT_S):
 
 
 def _download(url, out_path, timeout_s=300):
+    """Fetch a generated asset. The URL comes from the PROXY'S RESPONSE, not from us.
+
+    That is a different trust level from the gateway URL in `_proxy()`, which is
+    ours and comes from config. urllib dispatches on scheme, and it honours
+    `file://` -- so a proxy that is compromised, spoofed, or simply buggy could
+    return `file:///etc/passwd` and this function would read it and write it into
+    `data/gen/` as a generated still, where the graph would then serve it. Nothing
+    downstream re-checks: `_variant_gifs` globs, `video_graph.build()` trusts what
+    is on disk, and the viewer renders it.
+
+    So the scheme is checked here rather than assumed. http and https only.
+    """
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in ("http", "https"):
+        raise HFGenError(
+            "proxy returned a %s:// URL; only http/https are fetched" % (scheme or "relative"),
+            kind="transient")
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(out_path.suffix + ".part")
