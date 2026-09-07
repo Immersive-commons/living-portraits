@@ -77,19 +77,6 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
-### Fixed — the suite could stop running entirely without failing
-
-- **`tests/test_verify.py` aborted collection for the whole session** on any box where cv2 is
-  installed but unimportable — the normal state of a headless container, where `opencv-python`
-  imports fine except that `libGL.so.1` is absent. `pytest tests/` exited with `Interrupted: 1
-  error during collection` and ran **zero tests**, presenting as one broken file rather than 344
-  tests not running. The guard was a module-level `pytestmark`, which gates already-collected
-  tests and does not stop the module body, so the `import verify` two lines below still executed.
-  (`pytest.importorskip` does not fix it either: it defaults to catching `ModuleNotFoundError`,
-  and this is a plain `ImportError`.) Now uses conftest's `HAVE_*` probes, which saw it
-  correctly all along, with `pytest.skip(allow_module_level=True)`. Absence is a skip with a
-  reason, never an error.
-
 ---
 
 ## 0.4.0 — 2026-08-11
