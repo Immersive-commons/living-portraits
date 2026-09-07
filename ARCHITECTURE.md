@@ -100,7 +100,7 @@ lp-mind     (AtLogon, long-lived process; NIGHT_INTERVAL 900s / DEFAULT_INTERVAL
 lp-gen      (time trigger, repeat PT20M)
   pythonw pipeline/autogen.py generate --auto --limit 1
 
-  run_generate()                        autogen.py:823
+  run_generate()                        autogen.py:828
     single-flight lock                  autogen.py:583
     for each pending/approved proposal:
       generate_one_hf()                 autogen.py:616     (backend "hf", default, :89)
