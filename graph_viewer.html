@@ -616,7 +616,7 @@ function renderMemory() {
   const V = S.V;
   $("#memsheet").innerHTML = `<h2>What each character is remembering right now</h2>
   <p class="hint" style="max-width:100ch">Retrieval is scored, not tailed: recency decay
-  <code>${V.memory[V.live_characters[0]] ? V.memory[V.live_characters[0]].retrieval_params.recency_decay_per_hour : ""}</code>/hour,
+  <code>${(V.memory[V.live_characters[0]] || {}).retrieval_params ? V.memory[V.live_characters[0]].retrieval_params.recency_decay_per_hour : "\u2014"}</code>/hour,
   importance as the surprisal of the want, relevance in <b>transition hops from where the body stands</b> —
   which is the part a vector store cannot do, because the graph already knows how far a memory happened
   from here. Bounded by a token budget rather than an entry count, with slots reserved for distant
