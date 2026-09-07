@@ -77,6 +77,23 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
+### Added — the citations are checked by a machine now
+
+- **`tests/test_doc_citations.py`.** ARCHITECTURE's whole method is that every claim carries a
+  `file.py:line`, and its header admitted they "may have drifted by a few lines". Measured, it
+  was **16 citations, drifted 50 to 500 lines** — `tick()` had moved 219 while still being cited
+  at its old one. The obvious check catches none of this: all 75 citations pass "the file exists
+  and the line is in range" today. So this resolves SYMBOLS with `ast` and compares.
+  It handles two conventions a generic tool misses: the fenced call-flow diagrams, where 7 of
+  the drifts lived, and the ~100 bare `:NNN` anchors that inherit their filename from the anchor
+  before them. Binding is before-only — nearest-match produced three false reports on rows
+  carrying several anchors.
+- **All of it fixed in the same pass**: 11 definition-site citations, 13 ranges and interior
+  anchors resolved by hand, and `_build_user_prompt` in the findings doc. No baseline was kept;
+  a recorded ledger in `tests/` is a second, hidden copy of a fact that belongs in the document.
+  Two code-mapping tools were evaluated first and neither adopted — one reports this document as
+  *clean* because line 3 carries a date, and cannot see inside fences.
+
 ---
 
 ## 0.4.0 — 2026-08-11
