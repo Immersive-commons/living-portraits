@@ -108,6 +108,21 @@ project is. Deleting it would have been the irreversible reading of the same evi
 > tree. Deletions and moves made only here report as drift on every `release.py check` until the
 > private tree matches. Land these there first.
 
+### Added — the codebase map has to stay honest in both directions
+
+- **`tests/test_codemap.py`.** `codemap()` already wrote `exists: true/false` for all 23 rows and
+  nothing ever read it, so a moved file degraded the viewer's map into a description of something
+  that is not there. That is the easy half. The half that rots is backward: a module lands in
+  `runtime/` or `director/` and nobody adds it, so the map decays by omission while every row
+  still resolves. This asserts every file in the mapped layers is either IN the map or in an
+  `UNMAPPED` list **with a stated reason**. Scope is deliberately not the whole repo — demanding
+  prose for 28 test modules would push the map toward being an inventory, which its own header
+  says it is not.
+  Writing the list found two errors already in the map: `director/feeds.py` unmapped while
+  `context.py` is mapped as "the world seam" that feeds.py supplies, and `runtime/panels.py`
+  mapped as live panel geometry while having zero importers anywhere.
+  It has since caught three separate omissions of mine, which is the assertion earning its place.
+
 ---
 
 ## 0.4.0 — 2026-08-11
