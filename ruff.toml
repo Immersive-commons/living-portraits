@@ -5,9 +5,11 @@
 # no false "no-member" wall to disable), and fixes most of what it finds instead
 # of asking to be configured around it.
 #
-# CodeFactor also runs ruff over this repo, with its own default rule-set and no
-# config -- so what we select here governs OUR gate, not the grade. That is the
-# right way round: the findings get fixed rather than silenced.
+# CodeFactor runs ruff too, with its own default rule-set (E4/E7/E9/F only) and
+# no config -- so what we select here governs OUR gate and nothing else. Note it
+# grades the DEFAULT branch, which is upstream main, so none of this is what the
+# badge measures. That is fine: the point of this file is that findings get
+# fixed rather than silenced, not that a letter improves.
 #
 # The rule for editing this file: an entry in `ignore` needs a one-line reason
 # pointing at a specific decision in AGENTS.md or ARCHITECTURE.md. If you cannot
