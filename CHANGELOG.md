@@ -77,18 +77,6 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
-### Fixed — the viewer crashed on any clone without journals
-
-- **`graph_viewer.html` failed to boot on a fresh clone**, and not gracefully: the detail pane was
-  replaced by `TypeError: Cannot read properties of undefined (reading 'recency_decay_per_hour')`
-  and **three of the four tabs — Memory, Codebase map, and "What this does not know" — rendered
-  no text at all**. On the exact path the README promises: clone, seed, build, export, serve.
-  The guard at `:619` tested that a character's memory record exists; with no
-  `data/mind/journal/`, the export emits `{"available": false}`, which is truthy, so
-  `.retrieval_params` was undefined one property later. Line 625 already had the right idiom.
-  Found by rendering the page in a real browser — a `200` with 269 KB of DOM had been reported
-  as healthy for several sessions.
-
 ---
 
 ## 0.4.0 — 2026-08-11
