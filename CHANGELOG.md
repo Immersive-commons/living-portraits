@@ -77,27 +77,6 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
-### Added — one linter, and the findings it left behind
-
-- **`ruff.toml`, and ruff as the single Python linter.** A `.pylintrc` was written first and
-  rejected: it raised complexity ceilings while claiming not to, and `runtime/video_graph.py`
-  lost every design finding with no code changed. Ruff also does no type inference, so cv2's
-  C-extension namespace produces no 267-finding false-positive wall to disable.
-  **250 findings → 0**, of which ~120 are real fixes: unused imports and variables,
-  `raise ... from`, explicit `check=` on 11 `subprocess.run` calls, comprehension and return
-  rewrites. Nothing about complexity is raised in config — each function that exceeds the
-  default carries a `# noqa: <rule>  -- why` at its own definition, because a ceiling in a
-  config file silently excuses every function in the repo.
-- **flake8-bandit checks (`S`) are selected**, since CodeFactor runs bandit separately. Four are
-  declined with reasons (asserts are what a test is; pose selection is not cryptography; every
-  subprocess call is a fixed argv with `shell=True` nowhere in the tree). `S110`/`S112` are
-  deferred rather than swept: they independently flag three of the four silent swallows
-  catalogued by hand in issue #9 (`graph_provenance.py:268`, `video_graph.py:118`, `:123`), and
-  the fix is per-site judgement about a wall that must not crash.
-- **`PTH105` is declined outright.** Every `os.replace()` here is the atomic-write primitive
-  behind the single-writer contract. `Path.replace()` is the same syscall, so the rule offers
-  style in exchange for editing the one place where a mistake is silent and unreproducible.
-
 ---
 
 ## 0.4.0 — 2026-08-11
