@@ -77,43 +77,6 @@ gap, closed and then verified by cloning into a scratch directory and running it
   host's interpreter path. Both are fine; neither was written down, and both look like something
   a new contributor should be able to run.
 
-### Added — the viewer can show a walk in progress
-
-- **`scripts/live_view.py`.** The viewer was never actually static: `context_view.json` already
-  carried a `now` section per character — node, dwell, hop distances, frontier, and the Decision
-  lens's live weights — and `graph_viewer.html` already drew it. What was missing is that nothing
-  re-ran the export while the walker walked, so the page showed whatever was true the last time
-  someone typed a command. This runs the three pieces together: the real `_preview_graph.py`
-  headless under `SDL_VIDEODRIVER=dummy` with the `lp-preview` task's own flags, the exporter on
-  a timer, and an http server on the repo root.
-
-  It adds no writer. The walker owns `pose/<char>.json` and the lived record; the exporter is
-  read-only over production by contract, so looping it is safe — and the module docstring says
-  so, because the concurrency design has no lock and depends on that rule.
-
-  **Windows is needed for the wall, not the walker.** What is Windows-first is pinning a
-  borderless SDL window at desktop origin so an LED sending card can grab sub-rects out of it.
-  The walk itself is portable, and the first headless run showed Phineas going
-  `anchor → empty → nightclothes → sleep` — the circadian bedtime chain — inside a Linux
-  container. This is also the first time `_preview_graph.py` has been executed by anything other
-  than the production host; ROADMAP lists it as the #1 untested risk, and running it is not the
-  same as testing it, but it is no longer only reachable from `hil`.
-### Added — the viewer is tested in a real browser
-
-- **`scripts/e2e_viewer.py` + `.github/workflows/e2e.yaml`.** `graph_viewer.html` was the one
-  surface nothing tested: it holds no Python, so pytest never sees it, and a static server
-  answers `200` for a page whose JavaScript died before drawing anything. Per viewport — desktop
-  landscape, tablet portrait, phone portrait, phone landscape — it clicks all six lenses, all
-  four tabs, both checkboxes and both buttons, drags the provenance scrubber, clicks a node on
-  the canvas, and drains console errors, uncaught JS exceptions and failed requests after every
-  interaction. 68 screenshots per run, exits non-zero on any finding.
-  **Measured against the bug it was written for: 16 findings before the one-line fix, 0 after.**
-  Plain Playwright, pulled per-run with `uvx --with`, never added to `requirements.txt` — an
-  earlier draft borrowed a third-party scraping library, which meant this project's CI checked
-  out a personal repo at a floating ref to run this project's own tests.
-  AGENTS.md said "probe the DOM, do not eyeball a screenshot"; that argues against TRUSTING a
-  screenshot, not against taking one — taking one is how you learn there is something to probe.
-
 ---
 
 ## 0.4.0 — 2026-08-11
