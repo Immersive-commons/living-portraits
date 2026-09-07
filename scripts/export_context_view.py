@@ -46,9 +46,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from runtime import circadian, edge_style, journal_score, pathfind, policy  # noqa: E402
-from runtime import graph_provenance as gp  # noqa: E402
-from runtime import lived as lived_mod  # noqa: E402
+from runtime import circadian, edge_style, journal_score, pathfind, policy
+from runtime import graph_provenance as gp
+from runtime import lived as lived_mod
 
 SCHEMA = "living-portrait.context-view/v1"
 OUT = ROOT / "data" / "graph" / "context_view.json"
@@ -452,7 +452,7 @@ def build(now=None):
         memory_by_char[c] = memory_section(c, block.get("node"), hops, now)
 
     live_chars = [c for c in characters if (now_by_char.get(c) or {}).get("node")]
-    view = {
+    return {
         "schema": SCHEMA,
         "generated_at": now,
         "generated_iso": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
@@ -503,7 +503,6 @@ def build(now=None):
             "manner are all reconstructed exactly.",
         ],
     }
-    return view
 
 
 def main():

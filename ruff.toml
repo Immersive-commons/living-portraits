@@ -1,0 +1,201 @@
+# ruff.toml -- the single Python linter for this project.
+#
+# One tool, not several. Ruff replaced pylint here in 2026-09: it finds the same
+# real defects, does no type inference (so cv2's C-extension namespace produces
+# no false "no-member" wall to disable), and fixes most of what it finds instead
+# of asking to be configured around it.
+#
+# CodeFactor runs ruff too, with its own default rule-set (E4/E7/E9/F only) and
+# no config -- so what we select here governs OUR gate and nothing else. Note it
+# grades the DEFAULT branch, which is upstream main, so none of this is what the
+# badge measures. That is fine: the point of this file is that findings get
+# fixed rather than silenced, not that a letter improves.
+#
+# The rule for editing this file: an entry in `ignore` needs a one-line reason
+# pointing at a specific decision in AGENTS.md or ARCHITECTURE.md. If you cannot
+# write that reason, fix the code instead.
+
+line-length = 120        # p50=41, p90=88, p99=103. 120 flags the genuine outliers.
+target-version = "py310" # README claims 3.10+; this is what holds us to it.
+
+# Never lint what we do not own or run.
+extend-exclude = ["pipeline/vendor", "data", "_shots", ".venv", ".venv-gen"]
+
+[lint]
+select = [
+    "F",      # pyflakes -- unused imports/names, real errors
+    "E4", "E7", "E9",  # pycodestyle: imports, statements, syntax (E1/E2/E3 are formatter's job)
+    "E501",   # line length, against the 120 above
+    "B",      # bugbear -- mutable defaults, raise-without-from, loop-var capture
+    "SIM",    # simplifiable constructs
+    "UP",     # pyupgrade
+    "RUF",    # ruff's own
+    "PL",     # the pylint port: complexity + real logic checks
+    "S",      # flake8-bandit. CodeFactor runs bandit separately, so selecting the
+              # same checks here means we see them first, in the tool we already gate on.
+    "C4",     # comprehension rewrites
+    "RET",    # return-statement simplifications
+    "PTH",    # os.path -> pathlib
+    # C90 (mccabe) is deliberately NOT selected: it measures the same functions
+    # PLR0912 already flags, so every dense function would need two noqas saying
+    # the same thing. One complexity signal, not two.
+]
+
+ignore = [
+    # --- The five invariants that are not expressible in code (AGENTS.md) ------
+    #
+    # Import degradation IS the design. runtime/policy.py:54 is the canonical
+    # shape: try the sibling import, fall back to the package, degrade to the
+    # pre-feature behaviour if neither is there. Deferred imports also keep the
+    # stdlib-only walker from paying for numpy/cv2 it will never call.
+    "PLC0415",  # import-outside-top-level
+    #
+    # Fail-open is the contract. These characters hang on a wall in a public
+    # space under a watchdog; a traceback out of the 10 fps loop is a frozen
+    # portrait nobody notices for a week. A try/except/pass guarding a render
+    # step is the correct shape -- and rewriting it as contextlib.suppress()
+    # would delete the comment explaining WHY, which is the load-bearing part.
+    # Genuinely silent swallows are tracked as code review (issue #9), where a
+    # human can tell a principled guard from a hidden bug. A linter cannot.
+    "SIM105",   # suppressible-exception
+    #
+    # --- House style, decided --------------------------------------------------
+    #
+    # %-formatting is used consistently throughout and reads well in the log
+    # lines and prompt strings that dominate this code. Converting 238 sites
+    # would touch nearly every file to change nothing about behaviour.
+    "UP031",    # printf-string-formatting
+    #
+    # Thresholds and sentinels are compared inline against named constants a few
+    # lines above; extracting each to its own name would not make the walker's
+    # weighting any clearer.
+    "PLR2004",  # magic-value-comparison
+    #
+    # --- bandit checks that are wrong FOR THIS CODEBASE -------------------------
+    #
+    # 1017 of them, and asserts are what a test is. The pipeline/ modules also
+    # assert on generation preconditions, where an AssertionError killing a paid
+    # clip is the intended outcome.
+    "S101",     # assert
+    #
+    # Pose selection is not cryptography. runtime/policy.py picks the next clip
+    # from a seeded rng precisely so a walk is reproducible in a test.
+    "S311",     # non-cryptographic random
+    #
+    # Every subprocess call here is a fixed argv to a known binary -- schtasks,
+    # git, ssh, python -- with no user input in it, and shell=True appears
+    # nowhere in the tree. The PATH lookup S607 objects to is how the scheduled
+    # tasks and the deploy already invoke these.
+    "S603", "S607",
+    #
+    # director/llm.py reaches its gateway over urllib with a URL from config.
+    # NOT a blanket exemption: pipeline/hf_gen._download() urlopens a URL taken
+    # from the PROXY'S RESPONSE, which is a different trust level, and urllib
+    # honours file:// -- that one carries an explicit scheme check at the call
+    # site rather than relying on this line. If another response-derived URL
+    # appears, it needs the same check, not this ignore.
+    "S310",     # suspicious urlopen
+    #
+    # Every os.replace() in this tree is the ATOMIC-WRITE primitive -- the
+    # tmp-then-rename that makes the single-writer contract safe, in
+    # heartbeat._atomic_write, lived.flush, graph_provenance, clip_graph,
+    # export_context_view, gallery and backfill_lived. Path.replace() is the same
+    # syscall, so this rule offers style at the cost of editing the one thing in
+    # this codebase where a mistake is silent and unreproducible. Several
+    # docstrings also name `os.replace` explicitly. Declined, not deferred.
+    "PTH105",   # os.replace
+    #
+    # The walker writes pose/<char>.json and mtime-caches intent.json at module
+    # scope; the graph is hot-reloaded into a module-level binding. Those caches
+    # are the reason the 10 fps loop does zero I/O per frame. Threading them
+    # through as parameters would be a rewrite of the loop, not a cleanup.
+    "PLW0603",  # global-statement
+    #
+    # player.py inserts runtime/ on sys.path before importing its siblings, and
+    # tests/conftest.py:43 mirrors that. The imports MUST come after. This is the
+    # wiring AGENTS.md rule 2 describes, not an oversight.
+    "E402",     # module-import-not-at-top-of-file
+
+    # --- FOLLOW-UP: real findings, not yet fixed -------------------------------
+    #
+    # These are NOT decisions. Each is work someone still owes. Deliberately
+    # listed WITHOUT counts: a number here is a fourth thing to keep accurate,
+    # and it goes stale the moment anyone touches the code. Ask the tool instead
+    # -- it is always right and never needs updating:
+    #
+    #     ruff check --select RUF046,E501,PLW2901,PLR0911,SIM115,E741,PLR0913,RUF001 \
+    #                runtime director scripts health gallery.py player.py --statistics
+    #
+    # Delete a rule from this block when its count reaches zero.
+    "RUF046",   # int() around values already int, in the geometry math. Needs a
+                # read of each site: some guard against numpy scalars leaking
+                # into pygame rects.
+    "E501",     # long lines outside video_graph's prompt constants.
+    "PLW2901",  # loop variable rebound in the body.
+    "PLR0911",  # return-heavy dispatch functions.
+    "SIM115",   # open() without a context manager; two are deliberate (the
+                # handle outlives the try -- see backfill_lived.py:61).
+    "E741",     # `l` as a variable name.
+    "PLR0913",  # over the max-args=8 set below, under weigh()'s 18.
+    "RUF001",   # an ambiguous unicode char in a string literal.
+    "PTH108", "PTH110", "PTH116", "PTH123",
+                # the ordinary half of the pathlib migration -- os.unlink,
+                # os.path.exists, os.stat, open(). Mechanical, no behaviour
+                # change, ~14 sites. Worth doing; not worth doing blind in the
+                # same pass that adopted the rule.
+    "S110", "S112",
+                # try/except/pass and try/except/continue, 43 of them. NOT a
+                # blanket exemption for the fail-open contract: most are
+                # principled one-line guards, but issue #9 catalogues four on the
+                # provenance path that swallow real logic silently, and this rule
+                # flags three of those four by itself
+                # (graph_provenance.py:268, video_graph.py:118, :123).
+                # Deferred because the fix is per-site judgement about a
+                # production wall, not a sweep. Delete this entry when #9 closes.
+]
+
+# NOTHING about complexity is raised here. Ruff's defaults stand, and every
+# function that legitimately exceeds them carries a `# noqa: <rule>  -- why` at
+# its own def line. That is deliberate: a ceiling in this file silently excuses
+# every function in the repo, and the next reader cannot tell which ones were
+# considered. A noqa at the definition is a claim someone made about THAT
+# function, in front of the code it is about.
+
+# Ruff's default max-args is 5, which flags 26 functions here. That is a
+# statement about this codebase, not about one special function: the compositor
+# takes geometry, the prompt builders take context, the exporters take stores.
+# 8 is where the genuine outliers start, and the two that exceed it -- weigh()
+# at 18 and choose() at 19 -- carry their reason at their own def line rather
+# than hiding behind this number.
+[lint.pylint]
+max-args = 8
+max-positional-args = 8
+
+[lint.per-file-ignores]
+# Tests reach into internals on purpose (verify._synthetic_face, rig._synth_cutout)
+# and rebind fixture names by pytest's own convention.
+"tests/*" = [
+    "PLR2004",  # thresholds compared inline against the value under test
+    "PLR0915",  # a test that walks a long scenario is one test, not five
+    "PLC0415",  # deferred imports are how the suite degrades on a missing dep
+    "F811",     # pytest fixtures shadow their own name by design -- a fixture
+                # defined at module level and taken as a parameter is the whole
+                # idiom, and ruff reads it as a redefinition
+    "RUF059",   # unused unpacked values in `a, b = ...` destructuring assertions
+    "B905",     # zip() without strict=. Adding strict=True would change these
+                # assertions from "compare what pairs up" to "raise on length
+                # mismatch" -- a different test. Fix per-site, not by sweep.
+    "RUF012",   # mutable class attribute default, in a stub used as a fixture
+    "PLW1641",  # a comparison helper with __eq__ and no __hash__; never hashed
+]
+# Generation scripts are reference material that runs on a CUDA box, not on the
+# wall. ARCHITECTURE.md:399-401 marks them "LOCAL-GPU EXPERIMENTS (reference, not
+# run)"; they are linted for real errors but not for shape.
+"pipeline/_bake*.py" = ["PLR0913", "PLR0915", "PLR0912"]
+"pipeline/_gen_anchor*.py" = ["PLR0913", "PLR0915", "PLR0912"]
+# runtime/video_graph.py holds the generation PROMPTS as module constants --
+# single-line prose strings handed to an image model. They are data, and
+# rewrapping them would change what gets sent. 57 of the repo's 69 long lines
+# are these.
+"runtime/video_graph.py" = ["E501"]
+

@@ -197,10 +197,11 @@ class VideoGraph:
             for e in self.edges_from(stack.pop()):
                 t = e.get("to")
                 if t not in seen:
-                    seen.add(t); stack.append(t)
+                    seen.add(t)
+                    stack.append(t)
         return seen
 
-    def validate(self):
+    def validate(self):  # noqa: PLR0912  -- walk-safety is a checklist, and each branch is one way a walker can be stranded. Collapsing them would make a refusal harder to explain.
         """Return [(level, msg)]. The walk is random + graph-following BY CONSTRUCTION
         (uniform random choice over a node's out-edges, advance to edge.to). These invariants
         guarantee it STAYS that way no matter what states/loops are added; build() raises on
@@ -229,7 +230,7 @@ class VideoGraph:
             multi = len(char_nodes.get(self.nodes[nid].get("character"), [])) > 1
             if multi and not any(e.get("kind") == "transition" for e in outs):
                 issues.append(("ERROR", "node %s has NO transition OUT -> the walk gets trapped in this state" % nid))
-        for char, ids in char_nodes.items():
+        for _char, ids in char_nodes.items():
             starts = [i for i in ids if self.edges_from(i)]
             if not starts:
                 continue

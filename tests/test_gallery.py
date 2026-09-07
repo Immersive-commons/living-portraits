@@ -19,8 +19,8 @@ from conftest import HAVE_YAML
 
 pytestmark = pytest.mark.skipif(not HAVE_YAML, reason="gallery.py imports pyyaml at module load")
 
-import gallery  # noqa: E402
-from gallery import (  # noqa: E402
+import gallery
+from gallery import (
     CastEntry, Gallery, _FakeOrchestrate, _norm_panel,
     add_character, assign_panel, list_cast,
 )

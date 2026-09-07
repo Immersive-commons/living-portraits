@@ -59,7 +59,7 @@ import math
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Iterator, Optional
+from collections.abc import Iterator
 
 import cv2
 import numpy as np
@@ -119,7 +119,7 @@ KNOWN_PARAMS = (
 
 def _neutral_params() -> dict:
     """All-zero params == rest pose, except eyes fully open (Open == 1)."""
-    p = {k: 0.0 for k in KNOWN_PARAMS}
+    p = dict.fromkeys(KNOWN_PARAMS, 0.0)
     p["ParamEyeLOpen"] = 1.0
     p["ParamEyeROpen"] = 1.0
     return p
@@ -167,7 +167,7 @@ def _shear_breathe(region: np.ndarray, shear: float, scale_y: float) -> np.ndarr
     h, w = region.shape[:2]
     if abs(shear) < 1e-4 and abs(scale_y - 1.0) < 1e-3:
         return region
-    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    _cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     # shear maps y-from-center to an x offset; scale_y stretches about cy.
     m = np.array([[1.0, shear, -shear * cy],
                   [0.0, scale_y, cy - scale_y * cy]], dtype=np.float32)
@@ -357,7 +357,7 @@ class Rig:
 
     # ---- construction helpers --------------------------------------------- #
     @classmethod
-    def from_slug(cls, slug: str, gen_dir: Optional[Path] = None, **kw) -> "Rig":
+    def from_slug(cls, slug: str, gen_dir: Path | None = None, **kw) -> Rig:
         """Load data/gen/<slug>_cutout.png + <slug>_rig.json."""
         gen_dir = Path(gen_dir) if gen_dir is not None else GEN_DIR
         return cls(gen_dir / f"{slug}_cutout.png",
@@ -437,7 +437,7 @@ class Rig:
         }
 
     # ---- the renderer ------------------------------------------------------ #
-    def frame(self, t: float, params: Optional[dict] = None) -> np.ndarray:
+    def frame(self, t: float, params: dict | None = None) -> np.ndarray:
         """Render one (H, W, 4) RGBA frame at time t (seconds).
 
         params: optional dict of Live2D-vocab overrides (any subset of
@@ -709,7 +709,7 @@ def _synth_spec_for(cutout: np.ndarray) -> dict:
 # --------------------------------------------------------------------------- #
 # Headless self-test
 # --------------------------------------------------------------------------- #
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     import tempfile
 
     print("[rig] self-test", flush=True)
@@ -761,7 +761,7 @@ def _selftest() -> int:
 
     # --- per-feature motion: assert on SYNTH (guaranteed contrast) ----------
     # A neutral param set (eyes open, no sway) so each test isolates ONE deformer.
-    base = {k: 0.0 for k in KNOWN_PARAMS}
+    base = dict.fromkeys(KNOWN_PARAMS, 0.0)
     base["ParamEyeLOpen"] = 1.0
     base["ParamEyeROpen"] = 1.0
 

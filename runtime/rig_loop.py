@@ -88,10 +88,8 @@ self-test then no-ops with a clear message instead of crashing).
 """
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 # numpy is only needed for type hints + the self-test; guard it so importing this
 # module never hard-fails on a box without numpy (mirrors stage_render's cv2 guard).
@@ -104,7 +102,7 @@ ROOT = Path(__file__).resolve().parent.parent
 GEN_DIR = ROOT / "data" / "gen"
 
 # A rig frame as stage_render consumes it: (rgb (H,W,3) uint8, alpha (H,W) uint8).
-RigFrame = Tuple["np.ndarray", "np.ndarray"]
+RigFrame = tuple["np.ndarray", "np.ndarray"]
 
 
 def _slug_for_char(char_name: str) -> str:
@@ -139,7 +137,7 @@ class RigLoop:
         render_stage(screen, name, panel, beat_panel, frame, fonts, rig_frame=rf)
     """
 
-    def __init__(self, gen_dir: Optional[Path] = None, seed: int = 7) -> None:
+    def __init__(self, gen_dir: Path | None = None, seed: int = 7) -> None:
         self.gen_dir = Path(gen_dir) if gen_dir is not None else GEN_DIR
         self.seed = seed
         # slug -> Rig | None.  None is a *cached* "this slug has no rig assets".
@@ -175,7 +173,7 @@ class RigLoop:
         return rig
 
     # ---- the seam: RGBA -> (rgb, alpha) ------------------------------------ #
-    def rig_frame_for(self, slug: str, t: float) -> Optional[RigFrame]:
+    def rig_frame_for(self, slug: str, t: float) -> RigFrame | None:
         """Animate `slug` at time `t` (seconds) into stage_render's rig_frame.
 
         Returns (rgb (H,W,3) uint8, alpha (H,W) uint8) -- the exact tuple
@@ -199,8 +197,8 @@ class RigLoop:
         alpha = rgba[..., 3]
         return rgb, alpha
 
-    def rig_frame_for_beat(self, beat_panel: Optional[dict],
-                           t: float) -> Optional[RigFrame]:
+    def rig_frame_for_beat(self, beat_panel: dict | None,
+                           t: float) -> RigFrame | None:
         """Convenience: resolve the slug from a beat panel, then rig_frame_for.
 
         `beat_panel` is player.py's inner {char, action, aside} dict (what
@@ -224,7 +222,7 @@ class RigLoop:
 # values, and asserts the tuple shape / dtype / colour-split / motion-over-time
 # contract stage_render relies on. No pygame, no network, no real assets.
 # --------------------------------------------------------------------------- #
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     # Make bare `import rig` / `import stage_render` resolve when run directly.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -236,7 +234,7 @@ def _selftest() -> int:
         return 0
 
     try:
-        import cv2  # noqa: F401  (proves the Rig decode path is available)
+        import cv2
     except Exception:
         print("[rig_loop] cv2 absent -- Rig cannot build; verifying graceful "
               "degrade only.", flush=True)

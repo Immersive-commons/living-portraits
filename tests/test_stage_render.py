@@ -21,7 +21,7 @@ from conftest import HAVE_CV2, HAVE_NUMPY
 
 pytestmark = pytest.mark.skipif(not HAVE_NUMPY, reason="stage_render tests need numpy")
 
-import stage_render as sr  # noqa: E402
+import stage_render as sr
 
 
 # --------------------------------------------------------------------------- #

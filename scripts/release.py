@@ -89,9 +89,7 @@ def is_public(rel: str) -> bool:
         return False
     if rel in EXCLUDE_FILES or parts[-1] in EXCLUDE_FILES:
         return False
-    if any(fnmatch.fnmatch(parts[-1], g) for g in EXCLUDE_GLOBS):
-        return False
-    return True
+    return not any(fnmatch.fnmatch(parts[-1], g) for g in EXCLUDE_GLOBS)
 
 
 def manifest() -> list[str]:
@@ -180,7 +178,7 @@ def _version() -> str:
 def cmd_release(args):
     """Gated release: tests -> version -> changelog -> tag. Push stays human."""
     new = args.version
-    if not new.count(".") == 2:
+    if new.count(".") != 2:
         print("version must be X.Y.Z")
         return 2
 
@@ -188,7 +186,7 @@ def cmd_release(args):
     # this tree runs several concurrent sessions, so a global clean check would never pass)
     dirty = subprocess.run(["git", "-C", str(LIFE), "status", "--porcelain",
                             "projects/living-portraits"],
-                           capture_output=True, text=True).stdout.strip()
+                           capture_output=True, text=True, check=False).stdout.strip()
     if dirty and not args.allow_dirty:
         print("living-portraits has uncommitted changes:\n" + dirty)
         print("commit them first, or pass --allow-dirty")
@@ -197,7 +195,7 @@ def cmd_release(args):
     # GATE 2: tests
     if not args.skip_tests:
         print("running tests...")
-        r = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"], cwd=ROOT)
+        r = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q"], cwd=ROOT, check=False)
         if r.returncode != 0:
             print("tests failed -- not releasing")
             return 1
@@ -212,7 +210,7 @@ def cmd_release(args):
     (ROOT / "VERSION").write_text(new + "\n")
     tag = TAG_PREFIX + new
     if subprocess.run(["git", "-C", str(LIFE), "tag", "-l", tag],
-                      capture_output=True, text=True).stdout.strip():
+                      capture_output=True, text=True, check=False).stdout.strip():
         print(f"tag {tag} already exists -- bump the version or delete the tag")
         return 1
     subprocess.run(["git", "-C", str(LIFE), "add",
@@ -221,7 +219,7 @@ def cmd_release(args):
     # VERSION/CHANGELOG may already be committed (they are written before the release
     # is cut, so the notes can be reviewed). An empty commit is not an error here --
     # the tag is the artifact, the commit is just where it points.
-    staged = subprocess.run(["git", "-C", str(LIFE), "diff", "--cached", "--quiet"]).returncode
+    staged = subprocess.run(["git", "-C", str(LIFE), "diff", "--cached", "--quiet"], check=False).returncode
     if staged:
         subprocess.run(["git", "-C", str(LIFE), "commit", "-m",
                         f"living-portraits: release {new}"], check=True)

@@ -13,7 +13,6 @@ import json
 
 import pytest
 
-import clip_graph as cg
 from clip_graph import Clip, ClipGraph, POSES, default_graph
 
 
