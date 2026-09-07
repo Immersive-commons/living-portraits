@@ -88,12 +88,47 @@ def _start_walker(a: str, b: str) -> subprocess.Popen | None:
     return w
 
 
-def _start_server(port: int) -> subprocess.Popen:
-    s = subprocess.Popen([sys.executable, "-m", "http.server", str(port),
-                          "--bind", "127.0.0.1"],
+# `python -m http.server` answers / with a directory listing of the repo root,
+# which is a poor front door: the viewer is one path deeper and nothing says so.
+# This is the same server with one redirect, so the bare URL lands on the page.
+_SERVER = """
+import sys
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+class Handler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ("/", "/index.html"):
+            self.send_response(302)
+            self.send_header("Location", "/graph_viewer.html")
+            self.end_headers()
+            return
+        SimpleHTTPRequestHandler.do_GET(self)
+
+    def log_message(self, *a):
+        pass
+
+ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+"""
+
+
+def _start_server(port: int) -> subprocess.Popen | None:
+    """Start the viewer server, or say why it could not bind.
+
+    stderr is kept, not discarded: the common failure here is `Address already in
+    use` from a server an earlier run orphaned, and swallowing that turns a
+    one-line fix into a mystery -- the script just exits with nothing to go on.
+    """
+    s = subprocess.Popen([sys.executable, "-c", _SERVER, str(port)],
                          cwd=str(ROOT), stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
-    print(f"server      http://127.0.0.1:{port}/graph_viewer.html")
+                         stderr=subprocess.PIPE)
+    time.sleep(0.6)
+    if s.poll() is not None:
+        err = (s.stderr.read() or b"").decode(errors="replace").strip()
+        print(f"could not serve on port {port}:\n  {err.splitlines()[-1] if err else '(no output)'}")
+        if "Address already in use" in err:
+            print(f"  something is already on {port}. Free it, or pass --port <other>.")
+        return None
+    print(f"server      http://127.0.0.1:{port}/   (/ redirects to the viewer)")
     return s
 
 
@@ -159,7 +194,11 @@ def main() -> int:
             return 1
         procs.append(("walker", w))
     if not args.no_serve:
-        procs.append(("server", _start_server(args.port)))
+        srv = _start_server(args.port)
+        if srv is None:
+            _stop(procs)
+            return 1
+        procs.append(("server", srv))
 
     print(f"exporting   every {args.every:g}s -- reload the page to see it move\n")
 
