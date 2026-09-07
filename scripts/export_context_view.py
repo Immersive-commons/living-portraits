@@ -149,6 +149,11 @@ CODEMAP = [
     ("proof", "health/checks.py",
      "Eight deterministic detectors, one per incident a human had to notice. Off-by-choice is a PASS.",
      "Honesty tab"),
+    ("proof", "scripts/e2e_viewer.py",
+     "Drives graph_viewer.html in a real browser across four viewports -- every lens, tab, "
+     "control and the scrubber -- and reports the console errors a 200 hides. The viewer is "
+     "the only surface pytest cannot reach.",
+     "Everything in this artifact"),
     ("proof", "tests/test_context_graph_probe.py",
      "Replays real decisions against the retrieval layer and asserts it reaches past `tail -5`.",
      "Memory tab"),
