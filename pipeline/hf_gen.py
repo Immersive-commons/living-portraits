@@ -29,6 +29,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -119,6 +120,30 @@ def _run_create(model, args, exts, files, *, timeout_s=_TIMEOUT_S):
 
 
 def _download(url, out_path, timeout_s=300):
+    """Fetch a generated asset. The URL comes from the PROXY'S RESPONSE, not from us.
+
+    That is a different trust level from the gateway URL in `_proxy()`, which is
+    ours and comes from config. urllib dispatches on scheme, and it honours
+    `file://` -- so a proxy that is compromised, spoofed, or simply buggy could
+    return `file:///etc/passwd` and this function would read it and write it into
+    `data/gen/` as a generated still, where the graph would then serve it. Nothing
+    downstream re-checks: `_variant_gifs` globs, `video_graph.build()` trusts what
+    is on disk, and the viewer renders it.
+
+    So the scheme is checked here rather than assumed. http and https only.
+    """
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in ("http", "https"):
+        # NOT `transient`. autogen re-queues everything except a terminal kind as
+        # "approved" (autogen.py:813), and _spend_clip runs only AFTER
+        # generate_clip returns (autogen.py:707-709). So a retryable failure here
+        # is the worst possible shape: _run_create has already billed Higgsfield
+        # 7.5 credits, the local budget never increments, CLIP_DAILY_CAP never
+        # trips, and the next run does it again. A proxy handing back a
+        # non-http URL will keep doing so; retrying spends money to learn nothing.
+        raise HFGenError(
+            "proxy returned a %s:// URL; only http/https are fetched" % (scheme or "relative"),
+            kind="refused")
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(out_path.suffix + ".part")
