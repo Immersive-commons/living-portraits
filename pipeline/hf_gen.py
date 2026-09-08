@@ -115,6 +115,13 @@ def _run_create(model, args, exts, files, *, timeout_s=_TIMEOUT_S):
             raise HFGenError(err, kind="capability")
         if "rate_limit" in low or "concurrent" in low:
             raise HFGenError(err, kind="rate_limit")
+        if "not_enough_credits" in low or "insufficient" in low:
+            # Its own kind, because it is the one failure that a retry CANNOT fix and
+            # that time WILL: the grant lands on the 23rd. Left as `transient` it was
+            # retried 7,279 times between 2026-08-17 and 2026-08-23 -- every 20 minutes
+            # for six days -- until the new month fixed it. Same argument as the
+            # `refused` kind: retrying spends to learn nothing.
+            raise HFGenError(err, kind="no_credits")
         raise HFGenError(err or "unknown proxy failure", kind="transient")
     return out["url"]
 

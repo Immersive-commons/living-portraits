@@ -1,6 +1,6 @@
 # health/ — what "this installation is fine" means, mechanically
 
-Eight detectors. Every one exists because something went wrong and **a human had to notice**.
+Nine detectors. Every one exists because something went wrong and **a human had to notice**.
 
 That is the point. On 2026-08-10 a single afternoon's audit found that production had been
 running for months without one of its two character specs, that a character had been looping

@@ -17,7 +17,7 @@ Two characters on `hil`, 262 nodes / 1532 edges, ~90 credits/day against a 3000/
 allowance that does not roll over. Retrieval is scored across a 25,000-entry journal, the
 graph carries a time dimension and typed edges, and each character keeps a record of 76 days
 of where it has actually stood — 847,659 picks, recovered from the walker's own pick-log.
-Eight deterministic detectors say whether the installation is healthy, two-hourly, without
+Nine deterministic detectors say whether the installation is healthy, two-hourly, without
 anyone looking at a wall.
 
 **What is true and unflattering:** the world half does not exist. Zero stored facts about any

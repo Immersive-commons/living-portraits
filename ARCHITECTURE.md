@@ -186,7 +186,7 @@ belongs to the parked `player.py` rendering path (see §7).
 | `lp_watchdog_preview.ps1` | scoped self-heal for `lp-preview` + `lp-mind` only | LIVE |
 | `start_portraits.ps1` / `stop_portraits.ps1` / `shot.ps1` | desktop one-click up/down (3-phase teardown); panel screenshot | LIVE |
 | `_preview_cycle.py`, `_preview_panels.py` | throwaway on-panel clip comparators | dev |
-| `health/` | **eight deterministic detectors + `oracle.yaml`** (v0.4.0). `python main.py verify check projects/living-portraits/health/oracle.yaml`; `verify probe` proves they do not flap. Cron `living_portraits_health`, two-hourly | LIVE |
+| `health/` | **nine deterministic detectors + `oracle.yaml`** (v0.4.0). `python main.py verify check projects/living-portraits/health/oracle.yaml`; `verify probe` proves they do not flap. Cron `living_portraits_health`, two-hourly | LIVE |
 | `scripts/deploy_hil.py` | **the deploy ledger** (v0.4.0): file list from `git ls-files`, ships only diffs, writes `DEPLOYED.json` with the source SHA, commits to a git repo ON the host. `--status` answers what is running and whether anyone hand-edited it | LIVE |
 | `scripts/backfill_lived.py` | mines `_preview.log` (76 days, 847k picks) back into the lived record; refuses to write under a live walker | LIVE (one-shot) |
 | `scripts/unstick.py` | ranks one-exit poses by measured dwell and buys a second exit for the worst, on Higgsfield, inside the budget rail | LIVE (manual) |

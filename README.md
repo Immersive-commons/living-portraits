@@ -95,7 +95,7 @@ hidden failures:
 | `runtime/` | The render loop's world: graph, walk, policy, circadian, lived record, provenance. **Pure stdlib by contract** — the 10 fps loop imports it, so nothing here may pull a heavy dependency. |
 | `director/` | Everything with a network or an LLM in it: the stage manager, feeds, reflection, heartbeat, OTel. All of it lives on this side of the line. |
 | `pipeline/` | Clip generation. Needs a CUDA GPU and `requirements-gen.txt`. Not needed to develop. |
-| `health/` | Eight deterministic detectors for "this installation is fine". |
+| `health/` | Nine deterministic detectors for "this installation is fine". |
 | `scripts/` | Operator tools: the context-view export, the demo seeder, deploy, backfill. |
 | `tests/` | 344 tests. `pytest`, or `python tests/run_all.py` on a box without it. |
 | `prompts/` | Character specs (`characters/*.json`), the bedtime routine, stage directives. |
@@ -136,7 +136,7 @@ suite does not require `pygame` at all.
 - [x] Circadian bedtime chain — the characters actually sleep
 - [x] Lived record, memory retrieval, and reflection written back by the characters
 - [x] Provenance: the graph can answer what a character could do last month
-- [x] Health oracle, eight deterministic detectors
+- [x] Health oracle, nine deterministic detectors
 - [x] Six-lens context viewer
 - [ ] Full-body motion at production quality (the open one — see ROADMAP)
 
