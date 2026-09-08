@@ -809,9 +809,14 @@ def generate_one_hf(p, *, dry_run=False, log=print):
     except Exception as e:
         kind = getattr(e, "kind", "transient")
         log("  FAIL %s:%s (%s) -- %s" % (char, label, kind, e))
-        # a capability error is deterministic: the model cannot do what we asked, and
-        # retrying just burns the queue. Everything else is worth another run.
-        set_status(p["id"], "failed" if kind == "capability" else "approved",
+        # Two kinds are TERMINAL, and both for the same reason: retrying spends
+        # money to learn nothing. `capability` means the model cannot do what we
+        # asked. `refused` means we rejected what came back -- a proxy returning a
+        # non-http URL, say -- which it will keep doing. Everything else is worth
+        # another run. This matters more than it looks: _spend_clip runs only
+        # after a successful generate_clip, so a re-queued failure that already
+        # billed the vendor is invisible to CLIP_DAILY_CAP.
+        set_status(p["id"], "failed" if kind in ("capability", "refused") else "approved",
                    fail_reason=str(e)[:300])
         _telemetry("gen", char=char, label=label, outcome="failed", backend="hf",
                    reason=str(e)[:200], kind=kind)
