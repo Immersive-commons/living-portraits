@@ -61,10 +61,7 @@ def available(*characters):
     """True when the graph AND every named journal are present (default: both characters)."""
     if not GRAPH_FILE.is_file():
         return False
-    for c in (characters or CHARACTERS):
-        if not journal_file(c).is_file():
-            return False
-    return True
+    return all(journal_file(c).is_file() for c in characters or CHARACTERS)
 
 
 def require(*characters):

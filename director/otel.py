@@ -93,7 +93,7 @@ class _JsonlSpanExporter:
                     "end_ns": end,
                     "dur_ms": round((end - start) / 1e6, 2) if (start and end) else None,
                     "status": s.status.status_code.name if s.status else None,
-                    "attributes": {k: v for k, v in (s.attributes or {}).items()},
+                    "attributes": dict((s.attributes or {}).items()),
                 }, default=str))
             with self.path.open("a", encoding="utf-8") as f:
                 f.write("\n".join(rows) + "\n")
@@ -175,9 +175,7 @@ def _safe_set(span, key, value):
     if value is None:
         return
     try:
-        if isinstance(value, bool):
-            span.set_attribute(key, value)
-        elif isinstance(value, (int, float, str)):
+        if isinstance(value, (bool, int, float, str)):
             span.set_attribute(key, value)
         else:
             span.set_attribute(key, str(value))

@@ -20,8 +20,7 @@ from conftest import HAVE_CV2, HAVE_NUMPY
 
 pytestmark = pytest.mark.skipif(not HAVE_NUMPY, reason="rig_loop tests need numpy")
 
-import rig_loop  # noqa: E402
-from rig_loop import RigLoop, _slug_for_char  # noqa: E402
+from rig_loop import RigLoop, _slug_for_char
 
 
 # --------------------------------------------------------------------------- #

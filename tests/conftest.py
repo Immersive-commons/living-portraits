@@ -81,7 +81,7 @@ def synth_cutout_rgba():
     transparency, distinct dark eyes + mouth). Requires cv2 (rig.py draws with it)."""
     if not (HAVE_NUMPY and HAVE_CV2):
         pytest.skip("synth cutout needs numpy + cv2")
-    import rig  # noqa: WPS433 -- runtime/ is on sys.path
+    import rig  # runtime/ is on sys.path
     return rig._synth_cutout(256)
 
 
@@ -91,7 +91,7 @@ def crossframe_cutout():
     direction asserts are unambiguous). numpy-only."""
     if not HAVE_NUMPY:
         pytest.skip("needs numpy")
-    import crossframe  # noqa: WPS433
+    import crossframe
     return crossframe._synth_cutout(256)
 
 
@@ -101,7 +101,7 @@ def synth_face():
     Returns a builder so a test can request shifted/scaled poses."""
     if not (HAVE_NUMPY and HAVE_CV2):
         pytest.skip("synth face needs numpy + cv2")
-    import verify  # noqa: WPS433
+    import verify
     return verify._synthetic_face
 
 
@@ -124,8 +124,8 @@ def written_rig(gen_dir):
         pytest.skip("rig fixture needs numpy + cv2")
     import json
 
-    import cv2  # noqa: WPS433
-    import rig  # noqa: WPS433
+    import cv2
+    import rig
 
     slug = "synthhero"
     cut = rig._synth_cutout(256)
@@ -143,8 +143,8 @@ def written_portrait(gen_dir):
     Returns (slug, gen_dir). For composite_art / StageRenderer art-present tests."""
     if not (HAVE_NUMPY and HAVE_CV2):
         pytest.skip("portrait fixture needs numpy + cv2")
-    import cv2  # noqa: WPS433
-    import stage_render as sr  # noqa: WPS433
+    import cv2
+    import stage_render as sr
 
     slug = "_test"
     portrait = sr._synthetic_portrait(512)

@@ -153,12 +153,15 @@ def test_extra_link_is_walk_safe():
         g.add_edge(id="phineas/%s/v0" % label, character="phineas", kind="idle",
                    label=label, **{"from": "phineas:%s" % at, "to": "phineas:%s" % at})
     # anchor hub <-> two leaf poses
-    tr("anchor_to_reading", "anchor", "reading"); tr("reading_to_anchor", "reading", "anchor")
-    tr("anchor_to_glower", "anchor", "glower");   tr("glower_to_anchor", "glower", "anchor")
+    tr("anchor_to_reading", "anchor", "reading")
+    tr("reading_to_anchor", "reading", "anchor")
+    tr("anchor_to_glower", "anchor", "glower")
+    tr("glower_to_anchor", "glower", "anchor")
     for n in ("anchor", "reading", "glower"):
         idle("%s_idle" % n, n)
     # the WEB edge: reading <-> glower directly
-    tr("glower_to_reading", "glower", "reading"); tr("reading_to_glower", "reading", "glower")
+    tr("glower_to_reading", "glower", "reading")
+    tr("reading_to_glower", "reading", "glower")
     errs = [m for lvl, m in g.validate() if lvl == "ERROR"]
     assert errs == []
 

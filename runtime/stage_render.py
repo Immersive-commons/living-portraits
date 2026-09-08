@@ -53,7 +53,6 @@ import numpy as np
 # renderer so the rig view and this view share identical RGB<->surface plumbing
 # (and the same import-guarded pygame/opencv handling).
 from clip_player import (  # type: ignore
-    DummySurface,
     _HAVE_CV2,
     _HAVE_PYGAME,
     _blit_rgb_to_surface,
@@ -90,8 +89,7 @@ def slugify(char_name: str) -> str:
     to a single underscore so a future 'Madame X' resolves to 'madame_x'.
     """
     s = (char_name or "").strip().lower()
-    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
-    return s
+    return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
 
 
 # --------------------------------------------------------------------------- #
@@ -133,7 +131,7 @@ def _imread_rgba(path: Path) -> np.ndarray | None:
         raw = cv2.cvtColor(raw, cv2.COLOR_GRAY2BGR)
     if raw.shape[2] == 3:  # BGR -> RGBA opaque
         rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-        a = np.full(rgb.shape[:2] + (1,), 255, np.uint8)
+        a = np.full((*rgb.shape[:2], 1), 255, np.uint8)
         return np.concatenate([rgb, a], axis=2)
     if raw.shape[2] == 4:  # BGRA -> RGBA
         return cv2.cvtColor(raw, cv2.COLOR_BGRA2RGBA)
@@ -216,7 +214,7 @@ def _fallback_plate(w: int, h: int, theme: dict) -> np.ndarray:
 
 
 def composite_art(
-    cache: "StageRenderer | dict | None",
+    cache: StageRenderer | dict | None,
     slug: str,
     w: int,
     h: int,
@@ -454,12 +452,11 @@ class StageRenderer:
             _blit_rgb_to_surface(sub, art)  # art fills the panel edge-to-edge
             if beat_panel:
                 _draw_text_overlay(sub, beat_panel, fonts or {}, theme)
-            else:
-                # No beat yet: keep player.py's "waiting" affordance over the art.
-                if fonts:
-                    msg = fonts["small"].render("PANEL " + panel_name + " waiting...",
-                                                True, (220, 220, 220))
-                    _blit_with_shadow(sub, msg, (_PAD, _PAD))
+            # No beat yet: keep player.py's "waiting" affordance over the art.
+            elif fonts:
+                msg = fonts["small"].render("PANEL " + panel_name + " waiting...",
+                                            True, (220, 220, 220))
+                _blit_with_shadow(sub, msg, (_PAD, _PAD))
             _draw_liveness(sub, frame, fonts or {}, theme)
         else:
             # Headless / no-pygame: blit the composited art into the (sub)surface.
@@ -548,7 +545,7 @@ def _synthetic_cutout(size: int = 512) -> np.ndarray:
     return np.dstack([rgb, alpha])
 
 
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     """Render a fake beat into 256x256 (A) and 192x192 (B) surfaces, headless.
 
     Asserts: art is non-blank, exactly panel-sized, alpha-composite changed the
@@ -617,7 +614,7 @@ def _selftest() -> int:
             assert had_a, "panel A should have art (portrait + cutout present)"
 
             # plate-only vs plate+cutout must differ (alpha composite did work)
-            plate_only, _ = composite_art(renderer, slug, 256, 256, theme_a,
+            _plate_only, _ = composite_art(renderer, slug, 256, 256, theme_a,
                                           rig_frame=None)
             # build a 'no cutout' comparison by reading just the portrait plate
             portrait_plate = _cover_resize_rgb(

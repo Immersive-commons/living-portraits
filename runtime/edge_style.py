@@ -80,7 +80,7 @@ MIN_SCORE = 2.0   # below this the prose has not named a manner -> None, not a b
 
 
 def _cues(strong, weak):
-    d = {w: STRONG for w in strong.split()}
+    d = dict.fromkeys(strong.split(), STRONG)
     for w in weak.split():
         d.setdefault(w, WEAK)
     return d

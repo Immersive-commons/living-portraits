@@ -316,7 +316,7 @@ def summary(store, now=None):
     deaths = [r.get(INVALIDATED) for kind in ("nodes", "edges")
               for r in (((store or {}).get(kind) or {}).values())
               if isinstance(r.get(INVALIDATED), (int, float))]
-    return {"nodes_dead": len(((store or {}).get("nodes") or {})),
-            "edges_dead": len(((store or {}).get("edges") or {})),
+    return {"nodes_dead": len((store or {}).get("nodes") or {}),
+            "edges_dead": len((store or {}).get("edges") or {}),
             "oldest_death_age_days": ((now - min(deaths)) / 86400.0) if deaths else 0.0,
             "newest_death_age_days": ((now - max(deaths)) / 86400.0) if deaths else 0.0}

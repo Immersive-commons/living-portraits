@@ -56,9 +56,9 @@ def parse(log_path):
     out = {}
     last_node = {}
     try:
-        f = open(str(log_path), "r", encoding="utf-8", errors="replace")
+        f = open(str(log_path), encoding="utf-8", errors="replace")
     except OSError as e:
-        raise SystemExit("cannot read %s: %s" % (log_path, e))
+        raise SystemExit("cannot read %s: %s" % (log_path, e)) from e
     with f:
         for line in f:
             if not line.startswith("["):
@@ -84,7 +84,7 @@ def walkers_alive():
     try:
         r = subprocess.run(["powershell", "-NoProfile", "-Command",
                             "@(Get-Process pythonw -ErrorAction SilentlyContinue).Count"],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, timeout=30, check=False)
         return int((r.stdout or "0").strip() or 0)
     except Exception:
         return -1                              # unknown: treated as "not proven safe"

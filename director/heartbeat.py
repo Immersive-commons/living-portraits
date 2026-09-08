@@ -304,7 +304,7 @@ def _lived_line(book, node, now=None):
     if visits <= 0:
         return ""
     ts = time.time() if now is None else now
-    first, last = book.age(node, now=ts)
+    first, _last = book.age(node, now=ts)
     bits = ["You have stood here %s" % ("once" if visits == 1 else "%d times" % visits)]
     # Only claim a history when there is one. A pose first stood in four minutes ago has no
     # "first ... ago" worth saying, and saying it anyway teaches the character a false past.
@@ -380,7 +380,7 @@ def _build_user_prompt(graph, character, node, dwell, goals, hour, hops=None):
     habit = _lived_line(book, node, now=ts)
     neighbours = _neighbour_lines(character, now=ts)
 
-    extra = "\n".join(x for x in ([aggregate, habit, frontier] + neighbours) if x)
+    extra = "\n".join(x for x in ([aggregate, habit, frontier, *neighbours]) if x)
     extra = ("\n" + extra + "\n") if extra else ""
     bands = ", ".join(sorted(policy.MOOD_BIAS))
     clock = now.strftime("%-I:%M %p") if os.name != "nt" else now.strftime("%I:%M %p").lstrip("0")
@@ -452,7 +452,8 @@ def _propose_hub(graph, character, node, spec_bedtime=None):
 
     So: refuse a bedtime pose, refuse a pose that is itself a dead end (that would grow a
     chain of spurs), else keep the natural home. Falls back to the character's real hub."""
-    pose_of = lambda n: n.split(":", 1)[1] if ":" in n else n
+    def pose_of(n):
+        return n.split(":", 1)[1] if ":" in n else n
     fallback = pose_of(_hub(graph, character) or "%s:anchor" % character)
     if not node:
         return fallback
@@ -622,7 +623,7 @@ def _sibling_candidates(graph, character, hub, exclude=None, limit=6):
     return [pose for _, pose in cands[:limit]]
 
 
-def propose_pose(character, model, dry_run, log, max_pending=8):
+def propose_pose(character, model, dry_run, log, max_pending=8):  # noqa: PLR0915  -- the propose path end to end: budget gate, prompt, model call, parse, dedupe against pending, write. It spends money, so it stays readable top to bottom.
     """Ask the LLM to PROPOSE one new pose the character wishes it had, and file it to
     the human-gated queue (data/mind/proposals.json) via pipeline.autogen. Does NOT
     generate -- a human approves, then the autogen worker spends the credits."""
@@ -707,8 +708,7 @@ def propose_pose(character, model, dry_run, log, max_pending=8):
             extra_links = [{"sibling": sib, "motion": lmotion,
                             "reverse_motion": (out.get("link_reverse_motion") or "").strip()}][:MAX_EXTRA_LINKS]
     link_motions = [m for el in extra_links for m in (el["motion"], el["reverse_motion"]) if m]
-    v = mj_safe.check(still, motion=" ".join([out.get("transition_motion", ""), rev_motion]
-                                             + idle_motions + link_motions))
+    v = mj_safe.check(still, motion=" ".join([out.get("transition_motion", ""), rev_motion, *idle_motions, *link_motions]))
     if not v["ok"]:
         log("  %s: proposal '%s' hard-blocked (%s) -> dropped" % (character, label, ", ".join(v["hard"])))
         return None
@@ -738,15 +738,15 @@ def _ensure_player(log):
     (that stays the off switch). Silent unless something goes wrong; the watchdog does the logging."""
     try:
         q = subprocess.run(["schtasks", "/query", "/TN", "lp-preview", "/FO", "LIST"],
-                           capture_output=True, text=True, timeout=15)
+                           capture_output=True, text=True, timeout=15, check=False)
         if "Disabled" in (q.stdout or ""):
             return                                  # turned off on purpose -> leave it
-        subprocess.run(["schtasks", "/Run", "/TN", "lp-preview"], capture_output=True, timeout=20)
+        subprocess.run(["schtasks", "/Run", "/TN", "lp-preview"], capture_output=True, timeout=20, check=False)
     except Exception:
         pass
 
 
-def tick(characters, model, dry_run, log):
+def tick(characters, model, dry_run, log):  # noqa: PLR0912  -- the brain's one loop: backstop the player, then per character sense/decide/journal, then the every-8th-tick proposal. The branches ARE the tick's contract.
     _ensure_player(log)                             # backstop: panels should never be dark while the brain runs
     graph = video_graph.VideoGraph.load()
     try:

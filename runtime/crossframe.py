@@ -180,7 +180,7 @@ def _prep_figure_rgba(cutout_rgba: np.ndarray, w: int, h: int) -> np.ndarray:
     if arr.ndim == 2:  # single-channel matte -> treat as opaque gray
         arr = np.dstack([arr, arr, arr, np.full_like(arr, 255)])
     elif arr.shape[2] == 3:  # RGB -> opaque RGBA
-        a = np.full(arr.shape[:2] + (1,), 255, np.uint8)
+        a = np.full((*arr.shape[:2], 1), 255, np.uint8)
         arr = np.concatenate([arr, a], axis=2)
     sh, sw = arr.shape[:2]
     if (sw, sh) == (w, h):
@@ -201,7 +201,7 @@ def _shift_x(rgba: np.ndarray, dx: int) -> np.ndarray:
     become transparent). Positive dx pushes the figure right (toward the panel's
     right edge); negative pushes left. Vertical position is unchanged -- the walk
     is horizontal, panel-to-panel."""
-    h, w = rgba.shape[:2]
+    _h, w = rgba.shape[:2]
     out = np.zeros_like(rgba)
     if dx == 0:
         out[:] = rgba
@@ -549,7 +549,7 @@ def _opaque_fraction(alpha: np.ndarray) -> float:
     return float((alpha > 10).mean())
 
 
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     import math
 
     print("[crossframe] self-test", flush=True)

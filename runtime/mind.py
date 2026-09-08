@@ -66,7 +66,7 @@ def goal_for(intent, character, now=None, max_age=DEFAULT_MAX_AGE):
     return goal
 
 
-def decide(character, node, out_edges, all_edges, last_id, intent, rng,
+def decide(character, node, out_edges, all_edges, last_id, intent, rng,  # noqa: PLR0917  -- the walker's whole decision context; 9 positionals mirror policy.weigh's call site exactly
            now=None, max_age=DEFAULT_MAX_AGE):
     """Return one of:
         {"action": "force", "edge": e}   play exactly this edge (a step toward, or an
