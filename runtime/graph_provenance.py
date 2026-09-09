@@ -1,6 +1,6 @@
 """graph_provenance.py -- BI-TEMPORAL PROVENANCE for the video graph.
 
-The audit's first structural finding (`_audit/CONTEXT_GRAPH_AUDIT.md` §1.1) is that the
+The audit's first structural finding (`_audit/CONTEXT_GRAPH_AUDIT.md (internal)` §1.1) is that the
 graph has no time dimension at all: "There is no timestamp, no valence, no importance,
 no type." A node cannot say when it entered the system, and an edge whose clip is deleted
 does not become history -- it stops existing, because `build()` simply skips it and

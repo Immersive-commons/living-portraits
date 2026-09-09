@@ -1,6 +1,6 @@
 """test_context_graph_probe.py -- the SCORECARD. Is this a true context graph, on real data?
 
-`_audit/CONTEXT_GRAPH_AUDIT.md` names four capabilities that show up in every serious
+`_audit/CONTEXT_GRAPH_AUDIT.md (internal)` names four capabilities that show up in every serious
 context-graph system, and `_research/CONTEXT_GRAPHS_FINDINGS.md` checks that list against the
 literature. This file turns them into five measurements and runs them against the production
 snapshot in `data/_realdata/` -- 259 nodes, 1,472 edges, 25,405 journal entries over 66 days.

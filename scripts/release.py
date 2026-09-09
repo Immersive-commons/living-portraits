@@ -53,6 +53,11 @@ EXCLUDE_DIRS = {
 EXCLUDE_FILES = {
     # internal docs: roadmap/history/quality notes that describe unshipped intent
     "AUTONOMY.md", "MIGRATION.md", "PLAYER_INTEGRATION.md", "QUALITY_MILESTONES.md",
+    # goals.yaml is the same class -- a rung ladder of unshipped intent, whose public
+    # counterpart is ROADMAP.md. Nothing in the tree reads it, and it cites the private
+    # project memory. It was published only because this list was derived on 2026-08-09
+    # by diffing the repo as it then stood, and the file postdates that.
+    "goals.yaml",
     # superseded diagrams -- only v4 is published
     "living-portraits-architecture.svg",
     "living-portraits-architecture-v2.svg",
@@ -69,7 +74,13 @@ EXCLUDE_GLOBS = [
 # report them as permanently missing.
 OSS_ONLY = {"LICENSE", "NOTICE"}
 # published even though a glob would drop them
-FORCE_INCLUDE = {"demo.gif", "living-portraits-architecture-v4.svg"}
+# published even though a glob or an EXCLUDE_DIR would drop them
+FORCE_INCLUDE = {"demo.gif", "living-portraits-architecture-v4.svg",
+                 # hf_gen.py:16 cites this as the reason for every model choice, and
+                 # _bakeoff/ is an EXCLUDE_DIR -- so the citation resolved for nobody
+                 # reading the public repo. 4.8 KB of measurements, no credentials, no
+                 # paths, no costs. The 5.6 MB rendered page stays excluded.
+                 "_bakeoff/README.md"}
 
 
 def _tracked() -> list[str]:

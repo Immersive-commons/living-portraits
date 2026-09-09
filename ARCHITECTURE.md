@@ -270,7 +270,7 @@ walk instead of freezing them at a stale goal.
 | `lp-shot` | Ready | `powershell -File C:\living-portraits\shot.ps1` | manual |
 | `lp-player` | **Disabled** | `pythonw player.py` | the parked v2 show |
 | `lp-director` | **Disabled** | `pythonw director\stage_manager.py --loop 45` | the parked v2 show |
-| `lp-watchdog` | **Disabled** | `install\hil_watchdog.ps1` | the blanket watchdog; disabled on purpose |
+| `lp-watchdog` | **Disabled** | `install\hil_watchdog.ps1` (not in this repo) | the blanket watchdog; disabled on purpose |
 
 All tasks are `MultipleInstances=IgnoreNew`, and all live ones carry
 `WorkingDirectory=C:\living-portraits`. `lp-shot` and `lp-watchdog` have an EMPTY working
@@ -546,7 +546,7 @@ production state from the local `data/` directory.**
 - **The parked v2 stack** (`player.py`, `stage_render`, `rig`, `crossframe`, `clip_graph`,
   `orchestrate`) I mapped from docstrings, imports and test files only. It has good test
   coverage; I did not read it line by line, and I did not confirm it still runs.
-- **`install/hil_watchdog.ps1`** is referenced by the disabled `lp-watchdog` task but is not in
-  the repo — I did not check whether it exists on hil.
+- **`install/hil_watchdog.ps1`** (not in this repo) is referenced by the disabled
+  `lp-watchdog` task — I did not check whether it exists on hil.
 - **Line numbers are from the repo working tree at 2026-08-09.** hil runs a deployed copy; I
   did not diff the two, so a hil-side hotfix would not be reflected here.

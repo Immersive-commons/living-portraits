@@ -2,7 +2,7 @@
 
 Written 2026-08-09 at `v0.2.0`. Built from three grounded inputs, not from intuition:
 
-- [`_audit/CONTEXT_GRAPH_AUDIT.md`](_audit/CONTEXT_GRAPH_AUDIT.md) — what the system actually is
+- [`_audit/CONTEXT_GRAPH_AUDIT.md (internal)`](_audit/CONTEXT_GRAPH_AUDIT.md (internal)) — what the system actually is
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — what is load-bearing and what is untested
 - [`_research/CONTEXT_GRAPHS_FINDINGS.md`](_research/CONTEXT_GRAPHS_FINDINGS.md) — what the
   literature says about the audit's conclusions (via `life/research/`, 682 papers → 120 → 49 cards)
@@ -119,7 +119,7 @@ being discarded by the generator.
 
 ## v0.5.0 — A URL you can check ← THE NEXT MILESTONE
 
-`_hosting/PROPOSAL.md`, already costed. Cloudflare R2 on a custom domain, **$0/month**, Vercel
+`_hosting/PROPOSAL.md (internal)`, already costed. Cloudflare R2 on a custom domain, **$0/month**, Vercel
 never in the path.
 
 ~~The blocker is not the host: `graph_viewer.html:127` renders every node as a full-size PNG, so

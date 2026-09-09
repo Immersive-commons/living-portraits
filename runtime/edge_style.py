@@ -1,7 +1,7 @@
 """edge_style.py -- MANNER and VALENCE for a graph edge, derived from its own prose.
 
 The audit's finding is blunt: the edge type system is ONE BIT. `kind` is `idle` or
-`transition` and both mean "a playable video clip" (`_audit/CONTEXT_GRAPH_AUDIT.md`
+`transition` and both mean "a playable video clip" (`_audit/CONTEXT_GRAPH_AUDIT.md (internal)`
 S1.1, S3). The `tags` field, the one place edge semantics could live, holds
 `[kind, label, kind]` and no runtime module reads it. Every claim about typed edges
 carrying relational semantics is currently describing somebody else's system.

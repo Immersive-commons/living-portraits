@@ -163,7 +163,7 @@ def test_add_character_writes_md_registers_and_defers(gpath, tmp_chars):
         path=gpath, _orchestrate=fake,
     )
     md_file = tmp_chars / "inkwell.md"
-    assert res.md_written and md_file.exists(), "did not write prompts/characters/inkwell.md"
+    assert res.md_written and md_file.exists(), "did not write prompts/characters/inkwell.md (created at runtime)"
     md_text = md_file.read_text(encoding="utf-8")
     assert md_text.startswith("# The Inkwell Imp"), "md heading should use the display name"
     assert "Theme:" in md_text and "Voice:" in md_text
