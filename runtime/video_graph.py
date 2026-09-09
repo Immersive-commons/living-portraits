@@ -111,17 +111,31 @@ class VideoGraph:
             d = json.loads(p.read_text(encoding="utf-8"))
             g = cls(d.get("nodes", {}), d.get("edges", []))
         if history and _prov is not None:
+            # `merged` is what makes g.history honest. The old shape set it True
+            # unconditionally after a merge_history() that swallows its own failure
+            # and hands back the LIVE graph -- so a failed merge produced a graph
+            # that reported having history and had none. History is a nice-to-have;
+            # a graph that lies about having it is not.
+            merged = {"ok": True}
+
+            def _failed(why, _m=merged):
+                _m["ok"] = False
+                print("  provenance: history unavailable -- %s" % why, flush=True)
+
             try:
                 store = _prov.load_store(store_path)
-                g.nodes, g.edges = _prov.merge_history(g.nodes, g.edges, store)
-                g.history = True
-            except Exception:
-                pass       # history is a nice-to-have; the live graph is not
+                g.nodes, g.edges = _prov.merge_history(g.nodes, g.edges, store,
+                                                       on_error=_failed)
+                g.history = merged["ok"]
+            except Exception as e:
+                print("  provenance: history unavailable -- %r" % (e,), flush=True)
         if provenance and _prov is not None:
             try:
                 g.provenance = _prov.stamp(g.nodes, g.edges, root=ROOT)
-            except Exception:
-                pass
+            except Exception as e:
+                # Stamping is decoration; the graph is not. But a stamp that never
+                # lands means every downstream provenance view is silently empty.
+                print("  provenance: stamp failed -- %r" % (e,), flush=True)
         return g
 
     def save(self, path=None):
@@ -554,9 +568,17 @@ def _record_provenance(prev_nodes, prev_edges, g):
         if stats["edges_dead"] or stats["nodes_dead"]:
             print("  provenance: %d edge(s) + %d node(s) now live only in history%s" % (
                 stats["edges_dead"], stats["nodes_dead"], "" if wrote else " (STORE WRITE FAILED)"))
+        if stats.get("error"):
+            # reconcile() is fail-open and returns zeroed counters on a crash, so
+            # without this the line above reports "0 invalidated" for a step that
+            # did not run. See graph_provenance.reconcile.
+            print("  provenance: RECONCILE FAILED -- %s (counts above are not real)"
+                  % stats["error"], flush=True)
         return stats
-    except Exception:
-        return {}
+    except Exception as e:
+        print("  provenance: FAILED -- %r (the build itself is unaffected)" % (e,),
+              flush=True)
+        return {"error": repr(e)}
 
 
 def build():
