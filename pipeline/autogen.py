@@ -291,17 +291,29 @@ def _spend_clip(character, n=1):
 
 
 def _spend_still(character, n=1):
-    """A still is BILLED and was counted nowhere.
+    """A still is BILLED at 4 credits, correctly, and was counted nowhere.
 
-    `generate_still()` sends `--quality high --resolution 1k`, which is 4 credits, not
-    the 0.5 of the low tier -- so an estimate read off the wrong docstring line is 8x
-    low. Measured from gen_events.jsonl on the wall host 2026-09-08, over the fourteen
-    healthy days since the last outage: a steady 3 poses/day, so ~12 credits/day of
-    stills, ~360 per grant period. That is 12% of the 3000 that no counter has ever
-    seen -- and the plan ran dry on the 17th of the last period.
+    THE 4 IS NOT THE BUG. `generate_still()` sends `--quality high --resolution 1k` on
+    purpose, and hf_gen.py:44 gives the reason: this still is the anchor every clip of
+    the pose is generated from, and a soft anchor makes every downstream edge soft.
+    Paying 8x the low tier for it is the same quality decision that chose kling3_0 over
+    a 5-credit model in _bakeoff/README.md. Do not "optimise" it.
 
-    Deliberately NOT part of CLIP_DAILY_CAP: that cap governs how fast the wall grows,
-    which is an artwork decision. This governs what the vendor charged, which is not.
+    The bug was that nothing could SEE it. Measured from gen_events.jsonl on the wall
+    host 2026-09-08, across the fourteen healthy days since the last outage: a steady
+    3 poses/day, so ~12 credits/day, ~360 a grant period. The guardrail sum at the top
+    of this file omits that term, which is why 13 clips/day reads as 2925 of a 3000
+    allowance while the real rate is ~102/day -- 29.4 days of runway for a month that
+    is 30 or 31. The plan duly went dry on the 17th of the last period.
+
+    What that cost was not money: failed renders are refunded (_bakeoff/README.md). It
+    cost six days in which the wall generated nothing. Counting exists so the whole
+    grant is spent evenly on output, NOT so that less of it is spent.
+
+    Deliberately NOT part of CLIP_DAILY_CAP. That cap is a PACE, not a ceiling -- the
+    API's only hard limit is 8 concurrent jobs -- and it governs how fast the wall
+    grows, which is an artwork decision. This counts what the vendor charged, which is
+    not one.
     """
     r = _clip_rec()
     r["stills"] = r.get("stills", 0) + n
