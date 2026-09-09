@@ -69,7 +69,6 @@ try:                                     # player.py:35 -- runtime/ on sys.path
     )
 except ImportError:                      # _preview_graph.py:25 -- repo root on sys.path
     from runtime.clip_player import (  # type: ignore
-        DummySurface,
         _HAVE_CV2,
         _HAVE_PYGAME,
         _blit_rgb_to_surface,
