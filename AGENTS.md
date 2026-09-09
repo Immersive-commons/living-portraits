@@ -131,7 +131,7 @@ are not interchangeable — check which one your caller actually uses.
   live installation; `oracle.yaml` additionally hardcodes an absolute interpreter
   path from that host. Without access to `hil` both simply fail to connect —
   nothing here reads your local checkout. Read `health/README.md` for what the
-  eight detectors mean; do not expect to run them.
+  nine detectors mean; do not expect to run them.
 - **The Midjourney generation path is retired but intact.** It has returned HTTP
   403 on every upload since 2026-07-02. Higgsfield replaced it. Do not debug it.
 - **`data/clips/video_graph.live.json`**, if you ever see one, is a stale local

@@ -1,6 +1,7 @@
 # Living Portraits -- production health oracle.
 #
-# Six deterministic detectors, one per incident that a HUMAN had to notice on 2026-08-10.
+# Nine deterministic detectors, one per incident that a HUMAN had to notice.
+# (This header said SIX while the file gated eight. Corrected 2026-09-08.)
 # That is the ratchet this file exists to turn: an incident nobody had a check for becomes a
 # check, so it can only cost you once.
 #
@@ -94,3 +95,17 @@ checks:
     expect_rc: 0
     stdout_contains: "CHECK reflection_fired: PASS"
     stdout_not_contains: "CHECK reflection_fired: FAIL"
+
+  # 9. Poses are still being generated, and the failures are not all one thing. From
+  #    2026-07-01 to 2026-08-08 every generation failed on `storage-upload-file -> 403`,
+  #    886 times, and nothing paged: hf_gen classes 401/403 as kind="auth", autogen only
+  #    treats "capability" and "refused" as terminal, so the loop re-queued forever and
+  #    looked busy. The ledger counts SUCCESSES, so "0 clips today" read as a frugal day
+  #    rather than a dead one. This is the second outage of that exact shape -- see the
+  #    27-day world-seam 401 in CHANGELOG v0.4.0 -- so it is the second detector for it.
+  - id: lp-generation-healthy
+    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "generation_healthy"]
+    cwd: "."
+    expect_rc: 0
+    stdout_contains: "CHECK generation_healthy: PASS"
+    stdout_not_contains: "CHECK generation_healthy: FAIL"

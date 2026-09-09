@@ -147,7 +147,7 @@ CODEMAP = [
      "The prompt linter that keeps a generator from tripping a moderation block.",
      "-"),
     ("proof", "health/checks.py",
-     "Eight deterministic detectors, one per incident a human had to notice. Off-by-choice is a PASS.",
+     "Nine deterministic detectors, one per incident a human had to notice. Off-by-choice is a PASS.",
      "Honesty tab"),
     ("proof", "scripts/e2e_viewer.py",
      "Drives graph_viewer.html in a real browser across four viewports -- every lens, tab, "

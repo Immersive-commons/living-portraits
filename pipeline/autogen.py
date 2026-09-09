@@ -41,6 +41,7 @@ midjourney/). Atomic JSON writes throughout.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import subprocess
@@ -199,14 +200,76 @@ def _spend(character):
 # them over, and kling3_0 @ 1:1/5s/sound-off is 7.5 credits, so ~400 clips/month ~= 13/day
 # is the pace that spends the allowance evenly instead of exhausting it mid-month.
 # Per character 6, so two characters can both work without either starving the other.
+def _period_start(today=None):
+    """The grant period containing `today`, as YYYY-MM-DD.
+
+    Credits land on the 23rd and do NOT roll over, so the period is 23rd-to-22nd and
+    a period is as long as the month it starts in -- 31 days in seven months of
+    twelve. The old comment assumed 30, which is three clips of drift per year. Small,
+    but it was drift nothing could measure, because the period was not a thing the
+    code knew about.
+    """
+    d = _dt.date.fromisoformat(today or _today())
+    return str(d.replace(day=23) if d.day >= 23
+               else (d.replace(day=1) - _dt.timedelta(days=1)).replace(day=23))
+
+
+def _seconds_to_next_grant(now=None):
+    """Seconds until credits land. The period ends the day before the next 23rd."""
+    d = _dt.date.fromisoformat(_today())
+    nxt = d.replace(day=23) if d.day < 23 else (
+        (d.replace(day=1) + _dt.timedelta(days=32)).replace(day=23))
+    return int((_dt.datetime.combine(nxt, _dt.time.min) -
+                (now or _dt.datetime.now())).total_seconds())
+
+
+def _blank_period(today=None):
+    return {"start": _period_start(today), "clips": 0, "stills": 0, "credits": 0.0}
+
+
 def _clip_rec():
+    """Today's counters, and the period accumulator that must SURVIVE the daily reset.
+
+    The daily half drives CLIP_DAILY_CAP. The period half is what the 3000-credit grant
+    is actually spent against, and it used to be erased every midnight along with
+    everything else -- so the monthly guarantee lived only in a comment and nothing
+    could check it.
+    """
     b = _load(CLIP_BUDGET, {})
-    return b if b.get("date") == _today() else {"date": _today(), "total": 0, "chars": {}}
+    period = b.get("period") or _blank_period()
+    if period.get("start") != _period_start():
+        period = _blank_period()                 # a new grant landed; the old one did not roll over
+    if b.get("date") == _today():
+        b["period"] = period
+        b.setdefault("stills", 0)
+        return b
+    return {"date": _today(), "total": 0, "chars": {}, "stills": 0, "period": period}
 
 
 def clips_used(character=None):
     r = _clip_rec()
     return r["chars"].get(character, 0) if character else r["total"]
+
+
+def _rates():
+    """Credit prices, from the module that actually calls the vendor.
+
+    Deferred exactly like every other hf_gen use in this file (autogen.py:699): the MJ
+    path and the CLI must import on a box without hf_gen's deps. Copying the numbers
+    up here instead would put the price in two places, which is how one goes stale.
+    Only the SPEND paths need this, and they already run inside the HF branch.
+    """
+    from pipeline import hf_gen
+    return hf_gen.CREDITS_PER_CLIP, hf_gen.CREDITS_PER_STILL
+
+
+def credits_used():
+    """What the VENDOR billed this grant period. Clips and stills both.
+
+    Reads the accumulated float rather than recomputing from counts, so this stays a
+    pure read: `status` must answer on a box where hf_gen will not import.
+    """
+    return _clip_rec()["period"]["credits"]
 
 
 def clip_budget_left(character):
@@ -221,6 +284,41 @@ def _spend_clip(character, n=1):
     r = _clip_rec()
     r["total"] += n
     r["chars"][character] = r["chars"].get(character, 0) + n
+    r["period"]["clips"] += n
+    r["period"]["credits"] += n * _rates()[0]
+    _save(CLIP_BUDGET, r)
+    return r
+
+
+def _spend_still(character, n=1):
+    """A still is BILLED at 4 credits, correctly, and was counted nowhere.
+
+    THE 4 IS NOT THE BUG. `generate_still()` sends `--quality high --resolution 1k` on
+    purpose, and hf_gen.py:44 gives the reason: this still is the anchor every clip of
+    the pose is generated from, and a soft anchor makes every downstream edge soft.
+    Paying 8x the low tier for it is the same quality decision that chose kling3_0 over
+    a 5-credit model in _bakeoff/README.md. Do not "optimise" it.
+
+    The bug was that nothing could SEE it. Measured from gen_events.jsonl on the wall
+    host 2026-09-08, across the fourteen healthy days since the last outage: a steady
+    3 poses/day, so ~12 credits/day, ~360 a grant period. The guardrail sum at the top
+    of this file omits that term, which is why 13 clips/day reads as 2925 of a 3000
+    allowance while the real rate is ~102/day -- 29.4 days of runway for a month that
+    is 30 or 31. The plan duly went dry on the 17th of the last period.
+
+    What that cost was not money: failed renders are refunded (_bakeoff/README.md). It
+    cost six days in which the wall generated nothing. Counting exists so the whole
+    grant is spent evenly on output, NOT so that less of it is spent.
+
+    Deliberately NOT part of CLIP_DAILY_CAP. That cap is a PACE, not a ceiling -- the
+    API's only hard limit is 8 concurrent jobs -- and it governs how fast the wall
+    grows, which is an artwork decision. This counts what the vendor charged, which is
+    not one.
+    """
+    r = _clip_rec()
+    r["stills"] = r.get("stills", 0) + n
+    r["period"]["stills"] += n
+    r["period"]["credits"] += n * _rates()[1]
     _save(CLIP_BUDGET, r)
     return r
 
@@ -695,7 +793,16 @@ def generate_one_hf(p, *, dry_run=False, log=print):
         if need_still:
             hf_gen.generate_still(p["still_prompt"], still_png,
                                   ref_png=ROOT / hub_img, negatives=safe_neg)
-            log("    still -> %s" % still_png.name)
+            # AFTER the call, deliberately, and the same rule the clip sites follow.
+            # Reserving first would be the more careful shape in general, but not
+            # here: the dominant real failure is a 403 on storage-upload, which
+            # happens BEFORE the vendor bills anything -- 886 of them between
+            # 2026-07-01 and 2026-08-08. Reserving would have booked 886 phantom
+            # stills. What this still cannot see is a still that billed and then
+            # errored on the way back; that is the residual, and it is rare.
+            _spend_still(char)
+            log("    still -> %s  (%.1f credits, %.0f used this period)"
+                % (still_png.name, _rates()[1], credits_used()))
 
         # 2. the forward edge: hub still -> new still.
         if need_fwd:
@@ -822,6 +929,13 @@ def generate_one_hf(p, *, dry_run=False, log=print):
                    reason=str(e)[:200], kind=kind)
         if kind == "rate_limit":
             _set_cooldown(600, "higgsfield concurrency/rate limit")
+        if kind == "no_credits":
+            # Sleep until the grant, not for ten minutes. The plan is out and nothing
+            # this loop does will change that before the 23rd. Capped at 24h so a
+            # clock skew or an early top-up cannot strand the loop for weeks, and
+            # re-armed on the next attempt if the plan is still dry.
+            secs = min(86400, max(3600, _seconds_to_next_grant()))
+            _set_cooldown(secs, "higgsfield plan out of credits until the next grant")
         return False
 
 

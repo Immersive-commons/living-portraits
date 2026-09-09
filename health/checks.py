@@ -293,6 +293,79 @@ def reflection_fired():
     return _verdict("reflection_fired", any(n > 0 for n in d.values()), ev)
 
 
+def generation_healthy():
+    """Poses are still being generated, and failures are not all one thing.
+
+    THIS DETECTOR EXISTS BECAUSE NOTHING CAUGHT A 39-DAY OUTAGE. From 2026-07-01 to
+    2026-08-08 every generation failed on `POST /api/storage-upload-file -> 403`, 886
+    times, and the wall stopped growing. Nothing paged, for two compounding reasons:
+
+      1. `hf_gen` classifies 401/403 as kind="auth" (hf_gen.py:107), and autogen only
+         treats "capability" and "refused" as terminal, so an auth failure is re-queued
+         forever. The loop looked busy the whole time.
+      2. The clip ledger counts SUCCESSES. During the outage it read 0 clips every day,
+         which is indistinguishable from a frugal day. There was no signal that told
+         "spending nothing" apart from "achieving nothing".
+
+    So the check is not "is spend low". It is: were attempts made, did any succeed, and
+    is one reason eating all the failures. That last part is what turns a page into a
+    diagnosis -- naming the 403 on day two rather than after five weeks.
+    """
+    # Same off-by-choice rule as the others. lp-gen disabled is a decision, and a wall
+    # that is deliberately not growing owes nothing.
+    if _task_enabled("lp-gen") is False:
+        return _verdict("generation_healthy", True,
+                        ["lp-gen is DISABLED -- generation is off deliberately, so no "
+                         "new poses are expected or owed."])
+    d, err = _remote_json((
+        "import json,time,collections\n"
+        "cut=time.time()-604800\n"
+        "try:\n"
+        "    ps=json.load(open(r'__ROOT__/data/mind/proposals.json',encoding='utf-8'))\n"
+        "    ps=ps.get('proposals',ps) if isinstance(ps,dict) else ps\n"
+        "except Exception as e:\n"
+        "    print(json.dumps({'error':str(e)})); raise SystemExit\n"
+        "recent=[p for p in ps if isinstance(p.get('proposed_at'),(int,float))"
+        " and p['proposed_at']>=cut]\n"
+        "st=collections.Counter(p.get('status') for p in recent)\n"
+        "rs=collections.Counter((p.get('fail_reason') or '?')[:70]"
+        " for p in recent if p.get('status')=='failed')\n"
+        "top=rs.most_common(1)\n"
+        "print(json.dumps({'window_days':7,'queued':len(recent),"
+        "'done':st.get('done',0),'failed':st.get('failed',0),"
+        "'pending':st.get('pending',0)+st.get('approved',0),"
+        "'top_reason':(top[0][0] if top else None),"
+        "'top_count':(top[0][1] if top else 0)}))").replace("__ROOT__", REMOTE))
+    if d is None:
+        return _verdict("generation_healthy", False, ["could not reach the host: %s" % err])
+    if d.get("error"):
+        return _verdict("generation_healthy", False,
+                        ["could not read proposals.json: %s" % d["error"]])
+
+    done, failed, pending = d["done"], d["failed"], d["pending"]
+    # ATTEMPTED is done+failed. `pending` means QUEUED AND NOT YET TRIED, and counting it
+    # as an attempt is a false alarm on a healthy system: the caps exist to make the queue
+    # back up, so a deep queue is the designed steady state, not a fault. The first draft
+    # of this check got that wrong and FAILED live against a wall that was fine -- 12
+    # pending, 0 attempted, `clips today: 12/13`, both characters at their per-day cap.
+    attempted = done + failed
+    ev = ["last 7d: %d done, %d failed, %d still queued" % (done, failed, pending)]
+    if attempted == 0:
+        ev.append("nothing attempted yet; a queue that backs up against CLIP_CHAR_CAP is "
+                  "the designed steady state, not a fault. PASS on purpose.")
+        return _verdict("generation_healthy", True, ev)
+    if d.get("top_reason"):
+        ev.append("most common failure (%dx): %s" % (d["top_count"], d["top_reason"]))
+    if done == 0:
+        ev.append("NOTHING succeeded in 7 days while %d were attempted." % attempted)
+        return _verdict("generation_healthy", False, ev)
+    rate = failed / float(attempted)
+    if rate > 0.6:
+        ev.append("failure rate %.0f%% is above the 60%% bar." % (rate * 100))
+        return _verdict("generation_healthy", False, ev)
+    return _verdict("generation_healthy", True, ev)
+
+
 CHECKS = {
     "panels_alive": panels_alive,
     "walker_moving": walker_moving,
@@ -302,6 +375,7 @@ CHECKS = {
     "error_rate": error_rate,
     "world_context": world_context,
     "reflection_fired": reflection_fired,
+    "generation_healthy": generation_healthy,
 }
 
 

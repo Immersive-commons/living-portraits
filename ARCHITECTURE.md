@@ -100,10 +100,10 @@ lp-mind     (AtLogon, long-lived process; NIGHT_INTERVAL 900s / DEFAULT_INTERVAL
 lp-gen      (time trigger, repeat PT20M)
   pythonw pipeline/autogen.py generate --auto --limit 1
 
-  run_generate()                        autogen.py:828
-    single-flight lock                  autogen.py:583
+  run_generate()                        autogen.py:942
+    single-flight lock                  autogen.py:681
     for each pending/approved proposal:
-      generate_one_hf()                 autogen.py:616     (backend "hf", default, :89)
+      generate_one_hf()                 autogen.py:714     (backend "hf", default, :89)
         clip budget check before EVERY clip (:702, :717, :731)
         hf_gen.generate_still / generate_clip -> hf-proxy on `node`
         _record_pose -> autogen_poses.json
@@ -201,7 +201,7 @@ belongs to the parked `player.py` rendering path (see §7).
 | `graph_viewer.html` | browser view of the graph, served by `lp-graph` on :8011 | LIVE |
 | `lp_watchdog_preview.ps1` | scoped self-heal for `lp-preview` + `lp-mind` only | LIVE |
 | `start_portraits.ps1` / `stop_portraits.ps1` / `shot.ps1` | desktop one-click up/down (3-phase teardown); panel screenshot | LIVE |
-| `health/` | **eight deterministic detectors + `oracle.yaml`** (v0.4.0). `python main.py verify check projects/living-portraits/health/oracle.yaml`; `verify probe` proves they do not flap. Cron `living_portraits_health`, two-hourly | LIVE |
+| `health/` | **nine deterministic detectors + `oracle.yaml`** (v0.4.0). `python main.py verify check projects/living-portraits/health/oracle.yaml`; `verify probe` proves they do not flap. Cron `living_portraits_health`, two-hourly | LIVE |
 | `scripts/deploy_hil.py` | **the deploy ledger** (v0.4.0): file list from `git ls-files`, ships only diffs, writes `DEPLOYED.json` with the source SHA, commits to a git repo ON the host. `--status` answers what is running and whether anyone hand-edited it | LIVE |
 | `scripts/backfill_lived.py` | mines `_preview.log` (76 days, 847k picks) back into the lived record; refuses to write under a live walker | LIVE (one-shot) |
 | `scripts/unstick.py` | ranks one-exit poses by measured dwell and buys a second exit for the worst, on Higgsfield, inside the budget rail | LIVE (manual) |
@@ -238,10 +238,10 @@ All of `data/` is gitignored (`.gitignore:2`). On hil the real files live at
 | `data/mind/journal/<char>.jsonl` | heartbeat, append-only — decisions AND (v0.4.0) nightly `kind: "reflection"` lines from `director/reflect.py` | heartbeat via `journal_score.select` (SCORED retrieval since v0.3.0, not the last 5) | **no** — plain append | concurrent appends can interleave a line; readers skip unparsable lines (`:217-218`) so it degrades rather than breaks |
 | `data/clips/video_graph.json` | `video_graph.build()` (`video_graph.py:584`, `save()` `:54-61`) — driven by `lp-gen` | walker (hot-reload), heartbeat, pathfind | yes | a torn read is impossible by construction; two concurrent builds are prevented by the autogen lock, not by the file |
 | `data/mind/proposals.json` | `autogen.add_proposal` / `set_status` (`:142`, `:157`) — heartbeat proposes, worker transitions | both | yes (`_save` `:130`) | **read-modify-write, not locked.** Heartbeat appending while the worker sets a status can lose one side's edit. The 20-min/4-min cadences make the collision rare, not impossible **(inferred: I found no lock on this file)** |
-| `data/mind/clip_budget.json` | `_spend_clip` (`autogen.py:220`) | `clip_budget_left` (`:212`), status report | yes | the lock (`:583`) is what makes the read-modify-write safe — a second unlocked writer would let the daily cap be exceeded |
-| `data/mind/autogen_poses.json` | `_record_pose` (`autogen.py:530`) | `video_graph._load_autogen` (`:360`) | yes | same class as proposals: RMW under the autogen lock only |
+| `data/mind/clip_budget.json` | `_spend_clip` (`autogen.py:283`) | `clip_budget_left` (`:275`), status report | yes | the lock (`:681`) is what makes the read-modify-write safe — a second unlocked writer would let the daily cap be exceeded |
+| `data/mind/autogen_poses.json` | `_record_pose` (`autogen.py:628`) | `video_graph._load_autogen` (`:360`) | yes | same class as proposals: RMW under the autogen lock only |
 | `data/mind/gen_events.jsonl` | `_telemetry` (`autogen.py:69`), append-only | `autogen.py status` | no | best-effort by design; never raises into the gen loop (`:78-79`) |
-| `data/mind/autogen.lock` | `_acquire_lock` (`autogen.py:583`) | — | O_EXCL create | this IS the mutex. Stale locks are stolen after a dead PID or 3h (`:63`, `:592-606`) |
+| `data/mind/autogen.lock` | `_acquire_lock` (`autogen.py:681`) | — | O_EXCL create | this IS the mutex. Stale locks are stolen after a dead PID or 3h (`:63`, `:592-606`) |
 | `data/mind/lived/<char>.json` | **that character's walker only** (`runtime/lived.py`) — same per-character split as `pose/` | heartbeat (habit line + frontier ground truth), `health/checks.py`, `scripts/unstick.py` | yes | v0.4.0. Flushed at most once a minute from the 10 fps loop. **`flush()` round-trips keys it does not own** — the first version dropped the backfill's provenance block while keeping its numbers |
 | `data/graph/provenance.json` | `video_graph.build()` via `graph_provenance` | `VideoGraph.load(history=True)`, `health/checks.py` | yes | v0.4.0. Tombstones only; bounded at `MAX_TOMBSTONES`. NOT written by the runtime loop |
 | `data/mind/{zai_key.txt,hf_proxy.json,ic_context_token.txt}` | human | `llm.py`, `hf_gen.py:68-69` | — | secrets; gitignored. **`ic_context_token.txt` silently expired 2026-07-14 and nothing noticed for 27 days** — `context_line()` is fail-soft by contract, which is why `health/checks.py:world_context` now exists |

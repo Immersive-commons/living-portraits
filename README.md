@@ -100,7 +100,7 @@ hidden failures:
 | `runtime/` | The render loop's world: graph, walk, policy, circadian, lived record, provenance. **The walker's import set is pure stdlib by contract** — `_preview_graph.py` imports `circadian`, `lived`, `mind`, `policy` and (soft) `edge_style`, and `mind` pulls `pathfind`. None of those six may pull a heavy dependency. It does *not* import `video_graph`; it reads the built JSON. The rendering half of this directory (`rig`, `clip_player`, `stage_render`, `crossframe`) does use numpy/cv2; see ARCHITECTURE.md's PURE/HEAVY table. |
 | `director/` | Everything with a network or an LLM in it: the stage manager, feeds, reflection, heartbeat, OTel. All of it lives on this side of the line. |
 | `pipeline/` | Clip generation. Needs a CUDA GPU and `requirements-gen.txt`. Not needed to develop. |
-| `health/` | Eight deterministic detectors for "this installation is fine". |
+| `health/` | Nine deterministic detectors for "this installation is fine". |
 | `scripts/` | Operator tools: the context-view export, the demo seeder, deploy, backfill. |
 | `tests/` | 344 tests. `pytest`, or `python tests/run_all.py` on a box without it. |
 | `prompts/` | Character specs (`characters/*.json`), the bedtime routine, stage directives. |
@@ -162,7 +162,7 @@ suite does not require `pygame` at all.
 - [x] Circadian bedtime chain — the characters actually sleep
 - [x] Lived record, memory retrieval, and reflection written back by the characters
 - [x] Provenance: the graph can answer what a character could do last month
-- [x] Health oracle, eight deterministic detectors
+- [x] Health oracle, nine deterministic detectors
 - [x] Six-lens context viewer
 - [ ] Full-body motion at production quality (the open one — see ROADMAP)
 

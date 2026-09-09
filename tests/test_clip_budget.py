@@ -71,3 +71,71 @@ def test_caps_match_the_plan_arithmetic(budget):
     assert per_month / 30 == pytest.approx(budget.CLIP_DAILY_CAP, abs=1.5)
     # two characters must fit inside the system cap without starving each other
     assert budget.CLIP_CHAR_CAP * 2 <= budget.CLIP_DAILY_CAP
+
+
+# --------------------------------------------------------------- credits, not clips
+# The cap counts CLIPS because that is what governs how fast the wall grows. The grant
+# is spent in CREDITS, and stills are billed in credits and were counted nowhere: 4 each
+# at the quality generate_still() actually requests, ~230 per grant period on the
+# measured pose rate. These pin the half the old ledger could not see.
+
+def test_a_still_is_billed_and_counted(budget):
+    from pipeline import hf_gen
+    assert budget.credits_used() == 0
+    budget._spend_still("phineas")
+    assert budget.credits_used() == hf_gen.CREDITS_PER_STILL
+
+
+def test_a_still_does_not_consume_the_clip_cap(budget):
+    """Deliberate: the clip cap is an artwork decision about growth rate, and a still is
+    not a clip. If a still ever starts eating the cap, poses stop for the wrong reason."""
+    for _ in range(4):
+        budget._spend_still("phineas")
+    assert budget.clip_budget_left("phineas") == budget.CLIP_CHAR_CAP
+    assert budget.clips_used() == 0
+
+
+def test_the_period_survives_the_daily_rollover(budget, monkeypatch):
+    """THE bug. The daily record reset at midnight and took the period accumulator with
+    it, so the 3000-credit monthly guarantee lived only in a comment and nothing could
+    check it. Day counters must reset; the period must not."""
+    monkeypatch.setattr(budget, "_today", lambda: "2026-09-01")
+    budget._spend_clip("phineas")
+    budget._spend_still("phineas")
+    spent = budget.credits_used()
+    assert spent > 0
+
+    monkeypatch.setattr(budget, "_today", lambda: "2026-09-02")
+    assert budget.clips_used() == 0            # the DAY resets
+    assert budget.credits_used() == spent      # the PERIOD does not
+
+
+def test_the_period_resets_when_a_new_grant_lands(budget, monkeypatch):
+    """Credits arrive on the 23rd and do not roll over, so crossing that date is the one
+    time the accumulator SHOULD go back to zero."""
+    monkeypatch.setattr(budget, "_today", lambda: "2026-09-22")
+    budget._spend_clip("phineas")
+    assert budget.credits_used() > 0
+    monkeypatch.setattr(budget, "_today", lambda: "2026-09-23")
+    assert budget.credits_used() == 0
+
+
+def test_a_period_is_as_long_as_the_month_it_starts_in(budget):
+    """Not 30 days. Seven months of twelve are 31, which the old comment's fixed-30
+    assumption quietly dropped. Small, but it was drift nothing could measure."""
+    assert budget._period_start("2026-09-08") == "2026-08-23"   # before the 23rd -> last month
+    assert budget._period_start("2026-09-23") == "2026-09-23"   # on the 23rd -> this month
+    assert budget._period_start("2026-09-30") == "2026-09-23"
+    assert budget._period_start("2026-01-05") == "2025-12-23"   # across a year boundary
+    assert budget._period_start("2026-03-01") == "2026-02-23"   # across a short month
+
+
+def test_an_old_ledger_file_still_loads(budget):
+    """Boxes have a clip_budget.json written before any of this existed. It must read as
+    a valid record with a zeroed period, not crash the generation loop on a KeyError."""
+    budget._save(budget.CLIP_BUDGET, {"date": budget._today(), "total": 3,
+                                      "chars": {"phineas": 3}})
+    assert budget.clips_used() == 3
+    assert budget.credits_used() == 0
+    budget._spend_clip("phineas")
+    assert budget.clips_used() == 4
