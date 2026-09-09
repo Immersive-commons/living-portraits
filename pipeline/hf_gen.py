@@ -13,6 +13,10 @@ session. Everything here therefore goes through the hf-proxy on node
 (`j4me/infra/deploy/hf_proxy/`), which inlines files as base64 and shells to the pinned CLI.
 NEVER run `hf` on hil.
 
+The proxy's wire contract -- endpoints, the two rules it enforces, the error
+taxonomy this client depends on -- is written out in HF_PROXY.md, so it can be
+implemented without access to the service's source.
+
 MODEL CHOICE (measured 2026-08-09, see ../_bakeoff/README.md):
   * stills  -> gpt_image_2 @ 1k       = 0.5 credits, and 1024x1024 is natively square
   * clips   -> kling3_0 @ 1:1/5s      = 7.5 credits with sound OFF (10 with it on)
