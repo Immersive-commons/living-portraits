@@ -59,7 +59,6 @@ import numpy as np
 # the wall would fall through to the text dev-view and keep running.
 try:                                     # player.py:35 -- runtime/ on sys.path
     from clip_player import (  # type: ignore
-        DummySurface,
         _HAVE_CV2,
         _HAVE_PYGAME,
         _blit_rgb_to_surface,
