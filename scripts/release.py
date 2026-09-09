@@ -175,11 +175,48 @@ def _version() -> str:
     return (ROOT / "VERSION").read_text().strip()
 
 
+def parse_version(v):
+    """'0.4.1' -> (0, 4, 1). None if it is not three integers.
+
+    `v.count(".") == 2` accepted "a.b.c" and "0.4.x", which then sorted as strings or
+    not at all. Parsing is what lets the bump be compared rather than merely spelled.
+    """
+    parts = (v or "").split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        return tuple(int(x) for x in parts)
+    except ValueError:
+        return None
+
+
 def cmd_release(args):
-    """Gated release: tests -> version -> changelog -> tag. Push stays human."""
+    """Gated release: tests -> version -> changelog -> tag. Push stays human.
+
+    EVERY gate runs BEFORE the first side effect. That ordering is the point: the tag
+    check used to sit after the VERSION write, so `release 0.4.0` against an existing
+    tag exited 1 having already set VERSION to 0.4.0 with no commit and no tag. The
+    tree was then dirty for a release that never happened, `check` reported VERSION as
+    STALE in public, and GATE 1 refused the retry -- a failure that made itself harder
+    to recover from.
+    """
     new = args.version
-    if new.count(".") != 2:
-        print("version must be X.Y.Z")
+    parsed = parse_version(new)
+    if parsed is None:
+        print("version must be X.Y.Z, three integers")
+        return 2
+
+    # GATE 0: the bump must go UP. Only the tag's existence was checked, so `release
+    # 0.1.0` on a 0.4.0 tree succeeded as long as v0.1.0 had never been cut -- and a
+    # published version that moves backwards is very hard to undo.
+    cur = ""
+    try:
+        cur = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    cur_parsed = parse_version(cur)
+    if cur_parsed is not None and parsed <= cur_parsed:
+        print(f"VERSION is {cur}; {new} is not an increase")
         return 2
 
     # GATE 1: the monorepo must be clean for THIS project (other projects may be dirty --
@@ -207,12 +244,16 @@ def cmd_release(args):
         print(f"CHANGELOG.md has no '## {new}' section -- write the notes first")
         return 1
 
-    (ROOT / "VERSION").write_text(new + "\n")
+    # GATE 4: the tag must be free. Checked BEFORE anything is written -- see the
+    # docstring. This was the one gate that ran after a side effect.
     tag = TAG_PREFIX + new
     if subprocess.run(["git", "-C", str(LIFE), "tag", "-l", tag],
                       capture_output=True, text=True, check=False).stdout.strip():
         print(f"tag {tag} already exists -- bump the version or delete the tag")
         return 1
+
+    # ---------- first side effect below this line ----------
+    (ROOT / "VERSION").write_text(new + "\n")
     subprocess.run(["git", "-C", str(LIFE), "add",
                     "projects/living-portraits/VERSION",
                     "projects/living-portraits/CHANGELOG.md"], check=True)
