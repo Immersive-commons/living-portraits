@@ -16,7 +16,10 @@ import time
 import urllib.request
 from pathlib import Path
 
-import signals  # director/ is on sys.path when run as a script
+try:                                     # lp-director runs `director/stage_manager.py`,
+    import signals                       # so sys.path[0] is director/, not the repo root
+except ImportError:                      # importable as a package too
+    from director import signals
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPTS = ROOT / "prompts"

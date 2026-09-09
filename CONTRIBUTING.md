@@ -6,7 +6,7 @@
 git clone https://github.com/Immersive-commons/living-portraits.git
 cd living-portraits
 python -m pip install -r requirements.txt
-python -m pytest tests/ -q          # 304 passed, 40 skipped on a bare clone
+python -m pytest tests/ -q          # 303 passed, 41 skipped on a bare clone
 ```
 
 That is the whole setup. Six libraries, no GPU, no hardware, none of the
@@ -30,8 +30,8 @@ certainly do not need it.** Nothing under `runtime/`, `director/`, `health/`,
 
 Read [AGENTS.md](AGENTS.md). It is written for coding agents but the five rules
 in it are the ones a human gets wrong too, and they are not enforced by any test:
-single-writer files, `runtime/` stays pure stdlib, walk-safety refusals are
-correct, absence is a skip with a reason, detection never repairs.
+single-writer files, the walker's own import set stays pure stdlib, walk-safety
+refusals are correct, absence is a skip with a reason, detection never repairs.
 
 Then read the "If you read nothing else" list at the top of
 [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -43,7 +43,10 @@ from collections.abc import Iterable, Iterator
 
 import numpy as np
 
-from clip_graph import CLIPS_DIR, Clip
+try:                                     # player.py:35 puts runtime/ on sys.path
+    from clip_graph import CLIPS_DIR, Clip
+except ImportError:                      # _preview_graph.py:25 puts the repo root on it
+    from runtime.clip_graph import CLIPS_DIR, Clip
 
 # ---- optional heavy deps, import-guarded ---------------------------------
 # pygame is present on SC2's .venv but not on every dev box; opencv is only
