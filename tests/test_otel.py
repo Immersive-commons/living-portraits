@@ -59,7 +59,8 @@ def test_onpath_writes_genai_spans():
             "otel.shutdown()\n"
         ) % (str(ROOT),)
         env = dict(os.environ, LP_OTEL="1", LP_OTEL_FILE=str(sink))
-        r = subprocess.run([sys.executable, "-c", prog], capture_output=True, text=True, env=env)
+        r = subprocess.run([sys.executable, "-c", prog], capture_output=True, text=True,
+                           env=env, check=False)
         assert r.returncode == 0, r.stderr
 
         rows = [json.loads(ln) for ln in sink.read_text(encoding="utf-8").splitlines() if ln.strip()]

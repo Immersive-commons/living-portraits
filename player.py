@@ -322,10 +322,7 @@ def main():
         for e in pygame.event.get():
             if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
                 running = False
-        if frame % 15 == 0:
-            beat = load_state(cache)
-        else:
-            beat = cache.get("data")
+        beat = load_state(cache) if frame % 15 == 0 else cache.get("data")
         # dt = wall-clock seconds since the previous frame (monotonic). Capped so a
         # GC/IO stall can't skip a whole walk in one tick; crossframe also clamps.
         now = time.monotonic()

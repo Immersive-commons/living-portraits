@@ -1,0 +1,107 @@
+# e2e.yaml -- drive graph_viewer.html in a real browser and fail if it is broken.
+#
+# WHY THIS IS A SEPARATE WORKFLOW FROM ci.yaml
+#
+# ci.yaml is cheap, deterministic and runs on every push: stdlib plus six
+# libraries, no network beyond the package index, under a minute. This one
+# downloads a ~114 MB Chromium and its system libraries, so it runs on pull
+# requests and on demand rather than on every commit. Mixing them would make the
+# fast gate slow, and a slow gate is one people learn to ignore.
+#
+# WHAT IT CATCHES THAT ci.yaml CANNOT
+#
+# graph_viewer.html holds no Python. `pytest tests/` never sees it, and a static
+# server answers 200 for a page whose JavaScript died before drawing anything.
+# That is not hypothetical: one TypeError on a fresh clone killed the boot and
+# took the detail pane and three of the four tabs with it, while every HTTP check
+# reported the page healthy. This job is the thing that would have caught it --
+# measured at 16 findings before the fix and 0 after.
+#
+# Playwright is pulled in per-run with `uvx --with`, never added to
+# requirements.txt, so the walker's near-stdlib dependency contract is untouched
+# by a browser-testing tool.
+
+name: e2e
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  viewer:
+    name: viewer in a real browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install project dependencies
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+
+      # The viewer reads one exported JSON, and data/ is gitignored, so the
+      # artifact has to be built before there is anything to look at. This is
+      # the same chain AGENTS.md gives a contributor.
+      - name: Build something to view
+        run: |
+          uv run python scripts/seed_demo_media.py
+          uv run python runtime/video_graph.py build
+          uv run python scripts/export_context_view.py
+
+      # Chromium is the expensive part of this job. Cache it so a rerun that
+      # changes nothing does not re-download 114 MB.
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-v1
+
+      - name: Install the browser and its system libraries
+        # --with-deps handles Ubuntu 24.04's t64 library renames, which are a
+        # twenty-minute detour to discover by hand.
+        run: uvx --with playwright playwright install --with-deps chromium
+
+      - name: Serve the viewer
+        run: |
+          uv run python -m http.server 8000 --bind 127.0.0.1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:8000/graph_viewer.html && break
+            sleep 1
+          done
+          curl -sf -o /dev/null http://127.0.0.1:8000/graph_viewer.html
+
+      # Exits non-zero on any finding: a console error, a dead tab, a rendered
+      # TypeError, a control that will not click, in any of four viewports.
+      - name: Drive the viewer
+        run: |
+          uvx --with playwright python scripts/e2e_viewer.py \
+            http://127.0.0.1:8000 "$PWD/e2e_out"
+
+      # Always: on a failure the screenshots ARE the report -- the whole point is
+      # that the page's own rendering is the evidence.
+      - name: Upload screenshots and findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-viewer-${{ github.run_id }}
+          path: |
+            e2e_out/**/*.png
+            e2e_out/**/*.webm
+            e2e_out/findings.json
+          retention-days: 14
+          if-no-files-found: warn

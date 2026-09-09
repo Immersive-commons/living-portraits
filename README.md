@@ -42,6 +42,18 @@ python -m http.server 8000
 # http://localhost:8000/graph_viewer.html
 ```
 
+That shows the graph as of the last export. To watch a character actually walk
+it, run the walker and the exporter together:
+
+```bash
+python scripts/live_view.py          # ctrl-C stops it
+```
+
+This runs the real `_preview_graph.py` headless (`SDL_VIDEODRIVER=dummy`) with
+the production flags, re-exports every two seconds, and serves the root. Reload
+the page and the **Now** strip and **Decision** lens move. You do not need
+Windows for this — what is Windows-first is the wall itself, below.
+
 Six lenses over the same graph: **Structure**, **Lived** (visits as heat, dwell
 as size), **Provenance** (a scrubber that replays the graph accreting node by
 node), **Manner** (typed edges coloured by valence), **Frontier** (poses that are
@@ -92,7 +104,7 @@ hidden failures:
 | `scripts/` | Operator tools: the context-view export, the demo seeder, deploy, backfill. |
 | `tests/` | 344 tests. `pytest`, or `python tests/run_all.py` on a box without it. |
 | `prompts/` | Character specs (`characters/*.json`), the bedtime routine, stage directives. |
-| `graph_viewer.html` | The six-lens viewer. Static; reads one exported JSON. |
+| `graph_viewer.html` | The six-lens viewer. Reads one exported JSON; `scripts/live_view.py` keeps that JSON current while a walk is in progress. |
 | `panels.yaml` | Panel geometry and palette. Moving a panel is a config change, not a code change. |
 | `ruff.toml` | The single linter's config. Every `ignore` names a decision in AGENTS.md; complexity is justified at each function, never raised here. |
 | `requirements.lock` | `uv pip compile --universal` of the above, `win32` markers included. CI installs from it; `requirements.txt` stays the contract. |

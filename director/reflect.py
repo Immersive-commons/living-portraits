@@ -327,7 +327,7 @@ def build_prompt(character, entries, *, day=None, shift=None, now=None, distmap=
     day = day_window(entries, now=now) if day is None else day
     shift = detect_shift(day, entries) if shift is None else shift
 
-    name, ident = _identity(character)
+    _name, ident = _identity(character)
     system = ((system or ident) + "\n" + REFLECT_SYSTEM_TASK)
 
     picked = journal_score.select(day, now=now, distmap=distmap,

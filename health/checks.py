@@ -50,7 +50,7 @@ def _remote_json(snippet):
     cmd = "%s -c \"import base64;exec(base64.b64decode('%s').decode('utf-8'))\"" % (PY, blob)
     try:
         r = subprocess.run(["ssh", "-o", "ConnectTimeout=20", HOST, cmd],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, timeout=120, check=False)
     except Exception as e:
         return None, "host unreachable: %r" % (e,)
     if r.returncode != 0:
@@ -116,7 +116,7 @@ def panels_alive():
         return _verdict("panels_alive", False, ["_preview.log does not exist"])
     note = [] if enabled else ["(could not read lp-preview's enabled state -- assuming ON)"]
     return _verdict("panels_alive", age <= LOG_STALE_S,
-                    ["walker last printed %.0fs ago (limit %ds)" % (age, LOG_STALE_S)] + note)
+                    ["walker last printed %.0fs ago (limit %ds)" % (age, LOG_STALE_S), *note])
 
 
 def walker_moving():
@@ -204,7 +204,7 @@ def deploy_drift():
     try:
         r = subprocess.run([sys.executable, "scripts/deploy_hil.py", "--status"],
                            capture_output=True, text=True, timeout=180,
-                           cwd=str(__import__("pathlib").Path(__file__).resolve().parent.parent))
+                           cwd=str(__import__("pathlib").Path(__file__).resolve().parent.parent), check=False)
     except Exception as e:
         return _verdict("deploy_drift", False, ["could not run the deploy status: %r" % e])
     out = r.stdout or ""
@@ -312,7 +312,7 @@ def main():
         return 2
     if args[0] == "--all":
         rc = 0
-        for cid, fn in CHECKS.items():
+        for _cid, fn in CHECKS.items():
             rc |= fn()
         return rc
     fn = CHECKS.get(args[0])

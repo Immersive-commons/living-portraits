@@ -53,7 +53,7 @@ def load(path, max_scan=MAX_SCAN):
     loop's brain, and a half-written line must not take the panels down."""
     out = deque(maxlen=max_scan)
     try:
-        with open(str(path), "r", encoding="utf-8") as f:
+        with open(str(path), encoding="utf-8") as f:
             for ln in f:
                 ln = ln.strip()
                 if ln:

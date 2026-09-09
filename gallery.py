@@ -32,11 +32,9 @@ import argparse
 import datetime
 import os
 import re
-import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import yaml  # pyyaml -- a hard dep of the parent `life` repo (used widely); see CLAUDE.md.
 
@@ -69,12 +67,12 @@ class CastEntry:
 
     slug: str
     name: str
-    panel: Optional[str] = None
+    panel: str | None = None
     theme: str = ""
     persona: str = ""
-    voice: Optional[str] = None
-    mood: Optional[str] = None
-    created_at: Optional[str] = None
+    voice: str | None = None
+    mood: str | None = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict:
         # Ordered for a readable yaml diff; identity fields first, then the descriptive body.
@@ -90,7 +88,7 @@ class CastEntry:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "CastEntry":
+    def from_dict(cls, d: dict) -> CastEntry:
         return cls(
             slug=str(d["slug"]),
             name=str(d.get("name", d["slug"])),
@@ -103,7 +101,7 @@ class CastEntry:
         )
 
 
-def _norm_panel(panel) -> Optional[str]:
+def _norm_panel(panel) -> str | None:
     """Normalize a panel value to 'A' / 'B' / None. Raises on anything else (fail loud:
     a typo'd panel would silently drop a portrait off both screens)."""
     if panel is None:
@@ -134,7 +132,7 @@ class Gallery:
 
     # ---- load / save (atomic; mirrors clip_graph.save discipline) -------------------------
     @classmethod
-    def load(cls, path: Path | str = GALLERY_PATH) -> "Gallery":
+    def load(cls, path: Path | str = GALLERY_PATH) -> Gallery:
         """Load the roster from yaml. An absent/empty file yields an empty gallery."""
         path = Path(path)
         if not path.exists():
@@ -145,7 +143,7 @@ class Gallery:
         cast = [CastEntry.from_dict(r) for r in rows]
         return cls(cast=cast, path=path)
 
-    def save(self, path: Optional[Path | str] = None) -> Path:
+    def save(self, path: Path | str | None = None) -> Path:
         """Persist the roster to yaml atomically (tmp in same dir -> os.replace).
 
         A reader never sees a half-written file -- same atomic discipline as
@@ -169,7 +167,7 @@ class Gallery:
         return path
 
     # ---- queries --------------------------------------------------------------------------
-    def get(self, slug: str) -> Optional[CastEntry]:
+    def get(self, slug: str) -> CastEntry | None:
         for e in self.cast:
             if e.slug == slug:
                 return e
@@ -179,7 +177,7 @@ class Gallery:
         """The roster in registration order. (Free function list_cast() below is the public API.)"""
         return list(self.cast)
 
-    def panel_holder(self, panel: str) -> Optional[CastEntry]:
+    def panel_holder(self, panel: str) -> CastEntry | None:
         p = _norm_panel(panel)
         for e in self.cast:
             if e.panel == p and p is not None:
@@ -208,7 +206,7 @@ class Gallery:
         self.cast.append(entry)
         return entry
 
-    def assign_panel(self, slug: str, panel: Optional[str]) -> CastEntry:
+    def assign_panel(self, slug: str, panel: str | None) -> CastEntry:
         """Move a cast member onto panel A/B (or off-panel with None). Persists nothing -- the
         caller saves. Enforces the one-character-per-panel invariant."""
         entry = self.get(slug)
@@ -226,7 +224,7 @@ class Gallery:
 # ==========================================================================================
 # Character md file authoring (the shape phineas.md / seraphina.md use)
 # ==========================================================================================
-def _char_md_text(name: str, panel: Optional[str], theme: str, voice_line: str, persona: str) -> str:
+def _char_md_text(name: str, panel: str | None, theme: str, voice_line: str, persona: str) -> str:
     """Render a character md file in the EXACT shape of the seed files.
 
     Layout (see prompts/characters/phineas.md):
@@ -261,8 +259,8 @@ def _char_md_text(name: str, panel: Optional[str], theme: str, voice_line: str, 
     )
 
 
-def _write_char_md(slug: str, name: str, panel: Optional[str], theme: str,
-                   persona: str, voice: Optional[str]) -> tuple[Path, bool]:
+def _write_char_md(slug: str, name: str, panel: str | None, theme: str,
+                   persona: str, voice: str | None) -> tuple[Path, bool]:
     """Write prompts/characters/<slug>.md IF ABSENT. Returns (path, written).
 
     Never clobbers an existing persona file -- a hand-tuned character brief outranks anything
@@ -273,10 +271,7 @@ def _write_char_md(slug: str, name: str, panel: Optional[str], theme: str,
     path = CHARS_DIR / f"{slug}.md"
     if path.exists():
         return path, False
-    if voice:
-        voice_line = f"Voice: piper voice {voice}."
-    else:
-        voice_line = "Voice: unset (assign a piper voice id in gallery.yaml)."
+    voice_line = f"Voice: piper voice {voice}." if voice else "Voice: unset (assign a piper voice id in gallery.yaml)."
     text = _char_md_text(name, panel, theme, voice_line, persona)
     path.parent.mkdir(parents=True, exist_ok=True)
     # atomic write, same discipline as the roster
@@ -310,12 +305,12 @@ class AddResult:
     """
 
     slug: str
-    md_path: Optional[str] = None
+    md_path: str | None = None
     md_written: bool = False
     registered: bool = False
     build: str = "deferred"
     build_detail: str = ""
-    build_result: Optional[dict] = None
+    build_result: dict | None = None
 
     @property
     def deferred(self) -> bool:
@@ -333,7 +328,7 @@ class AddResult:
         }
 
 
-def _run_build_guarded(slug: str, *, allow_generate: bool, _orchestrate=None) -> tuple[str, str, Optional[dict]]:
+def _run_build_guarded(slug: str, *, allow_generate: bool, _orchestrate=None) -> tuple[str, str, dict | None]:
     """Call pipeline.orchestrate.build_character(slug), fully fenced.
 
     Returns (build_status, detail, raw_result_dict). build_status is one of:
@@ -391,7 +386,7 @@ def load(path: Path | str = GALLERY_PATH) -> Gallery:
     return Gallery.load(path)
 
 
-def save(gallery: Gallery, path: Optional[Path | str] = None) -> Path:
+def save(gallery: Gallery, path: Path | str | None = None) -> Path:
     """Persist a roster atomically. Thin free-function wrapper over Gallery.save."""
     return gallery.save(path)
 
@@ -401,7 +396,7 @@ def list_cast(path: Path | str = GALLERY_PATH) -> list[CastEntry]:
     return Gallery.load(path).list_cast()
 
 
-def assign_panel(slug: str, panel: Optional[str], *, path: Path | str = GALLERY_PATH) -> CastEntry:
+def assign_panel(slug: str, panel: str | None, *, path: Path | str = GALLERY_PATH) -> CastEntry:
     """Assign (or clear, with None) a cast member's panel and persist. Returns the updated entry."""
     g = Gallery.load(path)
     entry = g.assign_panel(slug, panel)
@@ -414,8 +409,8 @@ def add_character(
     name: str,
     theme: str,
     persona: str,
-    voice: Optional[str] = None,
-    panel: Optional[str] = None,
+    voice: str | None = None,
+    panel: str | None = None,
     *,
     path: Path | str = GALLERY_PATH,
     allow_generate: bool = False,
@@ -507,9 +502,8 @@ def _parse_char_md(slug: str, text: str) -> CastEntry:
     after the Voice: line is persona.
     """
     name = slug
-    panel: Optional[str] = None
+    panel: str | None = None
     theme = ""
-    voice: Optional[str] = None
     body_lines: list[str] = []
     in_body = False
     for raw_line in text.splitlines():
@@ -532,7 +526,6 @@ def _parse_char_md(slug: str, text: str) -> CastEntry:
             theme = line.split(":", 1)[1].strip().rstrip(".")
             continue
         if not in_body and line.lower().startswith("voice:"):
-            voice = line.split(":", 1)[1].strip().rstrip(".") or None
             in_body = True  # persona starts after the Voice line
             continue
         if in_body:
@@ -644,7 +637,7 @@ def cmd_add(args) -> int:
     return 0
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="living-portraits cast registry + add-character")
     ap.add_argument("--path", default=str(GALLERY_PATH), help="gallery.yaml path (default: project root)")
     sub = ap.add_subparsers(dest="cmd")
@@ -710,7 +703,7 @@ class _FakeOrchestrate:
         return _FakeDryRunResult(slug)
 
 
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     global CHARS_DIR  # the dummy-add step temporarily redirects this at the module level
     import shutil
 

@@ -211,7 +211,7 @@ def _count(seq, item):
     return sum(1 for x in seq if x == item)
 
 
-def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",
+def weigh(node, out_edges, all_edges, *, goal=None, mood=None, band=None, route="wander",  # noqa: PLR0912, PLR0915  -- 18 params and 18 branches are intrinsic: one transparent softmax over anti-reverse, novelty, goal-pull, mood, band, weather and manner, and the tests assert on the weights it returns. Splitting it scatters the algorithm away from the live measurements cited at :262-275.
           exclude=None, prev_node=None, last_id=None, recent_clips=(), recent_nodes=(),
           reverse_of=None, distmap=None, context_energy=None, styles=None,
           style_strength=1.0, dwell=0):

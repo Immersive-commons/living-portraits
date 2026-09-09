@@ -31,10 +31,9 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 # The pose vocabulary. MUST stay in lock-step with
 # director/stage_manager.py:ACTIONS -- those are the only `action` values a beat
@@ -122,9 +121,9 @@ class Clip:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Clip":
+    def from_dict(cls, d: dict) -> Clip:
         # Tolerate extra keys (forward-compat with whatever the verify gate stamps on).
-        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
         return cls(**{k: v for k, v in d.items() if k in known})
 
     def key(self) -> str:
@@ -147,7 +146,7 @@ class ClipGraph:
         self._edges: dict[str, dict[str, Clip]] = {n: {} for n in self.nodes}
 
     # ---- mutation ---------------------------------------------------------
-    def add_clip(self, clip: Clip) -> "ClipGraph":
+    def add_clip(self, clip: Clip) -> ClipGraph:
         """Add (or replace) the edge for clip's (from_node, to_node) pair."""
         if clip.from_node not in self._edges:
             self._edges[clip.from_node] = {}
@@ -190,7 +189,7 @@ class ClipGraph:
         # Dijkstra. Tiny graph (7 nodes), so a simple O(V^2) scan is plenty and
         # avoids pulling in heapq subtleties around the comparator.
         dist: dict[str, float] = {n: float("inf") for n in self._edges}
-        prev: dict[str, tuple[str, Clip] | None] = {n: None for n in self._edges}
+        prev: dict[str, tuple[str, Clip] | None] = dict.fromkeys(self._edges)
         dist[from_node] = 0.0
         unvisited = set(self._edges)
 
@@ -283,7 +282,7 @@ class ClipGraph:
         return path
 
     @classmethod
-    def load(cls, path: Path | str = MANIFEST_PATH) -> "ClipGraph":
+    def load(cls, path: Path | str = MANIFEST_PATH) -> ClipGraph:
         """Load a ClipGraph from a JSON manifest. Empty graph if absent."""
         path = Path(path)
         if not path.exists():

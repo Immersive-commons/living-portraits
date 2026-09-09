@@ -100,9 +100,11 @@ CANVAS_H = 256
 # Sibling renderers (import-guarded only insofar as their own deps are; numpy +
 # cv2 are present in the real pipeline and on this dev box). A hard failure here
 # is a real bug -- unlike pygame, these are the modules the demo exists to drive.
-import stage_render as sr          # noqa: E402  (after sys.path tweak)
-import crossframe as xf            # noqa: E402
-from rig_loop import RigLoop       # noqa: E402
+# These three come AFTER the sys.path insert above -- that is the wiring, not an
+# oversight (see ruff.toml's note on E402).
+import stage_render as sr
+import crossframe as xf
+from rig_loop import RigLoop
 
 try:  # opencv: present in the pipeline; used for asset I/O + the PNG fallback.
     import cv2  # type: ignore
@@ -268,8 +270,6 @@ def build_timeline(seconds: float, fps: int, char_a: str, char_b: str):
     # crossframe directions from the real panel geometry.
     geom = {nm: PANELS[nm]["rect"] for nm in PANELS}
     exit_dir, enter_dir = xf.edge_for_move("A", "B", geom)
-    rect_a = PANELS["A"]["rect"]
-    rect_b = PANELS["B"]["rect"]
 
     # Load the moving character's cutout once (RGBA) for the walk layers. The
     # walk animates char_a's figure; we need its raw cutout the way exit/enter
@@ -309,9 +309,9 @@ def build_timeline(seconds: float, fps: int, char_a: str, char_b: str):
             began = True
         # Re-derive elapsed deterministically rather than accumulating float dt,
         # so a dropped/extra frame can't desync the phase from wall position.
-        state._elapsed = min(t - walk_start, state._total())  # noqa: SLF001
+        state._elapsed = min(t - walk_start, state._total())
         if state._elapsed >= state._total():
-            state._commit_done()  # noqa: SLF001
+            state._commit_done()
 
         pa, prog_a = state.panel_state("A")
         pb, prog_b = state.panel_state("B")
@@ -438,7 +438,7 @@ def _assemble_gif(frames: list[np.ndarray], out_path: Path, fps: int) -> tuple[P
                    append_images=rest, duration=duration_ms, loop=0, optimize=False)
         return out_path, "pillow"
     except Exception as exc:
-        raise RuntimeError(f"no GIF backend (imageio/PIL both failed): {exc}")
+        raise RuntimeError(f"no GIF backend (imageio/PIL both failed): {exc}") from exc
 
 
 def _assemble_contact_sheet(frames: list[np.ndarray], out_path: Path,
@@ -522,7 +522,7 @@ def render_demo(seconds: float = 8.0, fps: int = 15,
 # --------------------------------------------------------------------------- #
 # Self-test: render a tiny demo offline (synth assets), assert the artifact.
 # --------------------------------------------------------------------------- #
-def _selftest() -> int:
+def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence of assertions, long by nature
     """Offline assertion pass -- no real assets required, no network.
 
     Renders a short demo (2s @ 8fps) into a temp out dir, forcing synth assets by
@@ -604,7 +604,7 @@ def _selftest() -> int:
     assert int(corner.sum()) == 0, "B dead-corner is not black (layout wrong)"
 
     # ---- motion: rig idle changes the panels over time ----------------------
-    canv_mid = stage.render_canvas(plan[min(len(plan) - 1, first_walk // 2)])
+    stage.render_canvas(plan[min(len(plan) - 1, first_walk // 2)])
     walk_canvases = [stage.render_canvas(pf) for pf in plan[first_walk:last_walk + 1]]
     # idle-to-idle should differ (blink/breathe/gaze) OR walk should differ from
     # idle -- assert the stronger, easy claim: the walk frames are not all equal.

@@ -20,7 +20,6 @@ the pytest run.
 """
 from __future__ import annotations
 
-import datetime
 import importlib
 import inspect
 import sys
@@ -178,14 +177,13 @@ class _MonkeyPatch:
         self._undo.clear()
 
 
-def _make_fixture_value(name, mp, tmp_root):
+def _make_fixture_value(name, mp, tmp_root):  # noqa: PLR0912  -- the stdlib fallback runner: one branch per pytest feature it stands in for
     """Provide the small set of fixtures the test functions request by name.
     Mirrors conftest.py. Returns the value (or raises Skipped to mark a skip)."""
     if name == "monkeypatch":
         return mp
     if name == "tmp_path":
-        d = Path(tempfile.mkdtemp(dir=str(tmp_root)))
-        return d
+        return Path(tempfile.mkdtemp(dir=str(tmp_root)))
     if name == "gen_dir":
         d = Path(tempfile.mkdtemp(dir=str(tmp_root))) / "gen"
         d.mkdir()

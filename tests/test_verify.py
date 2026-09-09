@@ -38,10 +38,10 @@ if not (HAVE_NUMPY and HAVE_CV2):
         allow_module_level=True,
     )
 
-import numpy as np  # noqa: E402
+import numpy as np
 
-import verify  # noqa: E402
-from verify import (  # noqa: E402
+import verify
+from verify import (
     CONTINUITY_THRESHOLD, LOOP_THRESHOLD,
     Verdict, continuity, identity, loopability, register, ssim, verify_clip, verify_portrait,
 )

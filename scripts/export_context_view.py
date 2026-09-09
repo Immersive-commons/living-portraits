@@ -46,9 +46,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from runtime import circadian, edge_style, journal_score, pathfind, policy  # noqa: E402
-from runtime import graph_provenance as gp  # noqa: E402
-from runtime import lived as lived_mod  # noqa: E402
+from runtime import circadian, edge_style, journal_score, pathfind, policy
+from runtime import graph_provenance as gp
+from runtime import lived as lived_mod
 
 SCHEMA = "living-portrait.context-view/v1"
 OUT = ROOT / "data" / "graph" / "context_view.json"
@@ -149,12 +149,21 @@ CODEMAP = [
     ("proof", "health/checks.py",
      "Eight deterministic detectors, one per incident a human had to notice. Off-by-choice is a PASS.",
      "Honesty tab"),
+    ("proof", "scripts/e2e_viewer.py",
+     "Drives graph_viewer.html in a real browser across four viewports -- every lens, tab, "
+     "control and the scrubber -- and reports the console errors a 200 hides. The viewer is "
+     "the only surface pytest cannot reach.",
+     "Everything in this artifact"),
     ("proof", "tests/test_context_graph_probe.py",
      "Replays real decisions against the retrieval layer and asserts it reaches past `tail -5`.",
      "Memory tab"),
     ("view", "scripts/export_context_view.py",
      "This file: joins the six single-writer stores plus two Python-only derivations into one JSON.",
      "-"),
+    ("view", "scripts/live_view.py",
+     "Runs the walker headless and re-exports on a timer, so the artifact tracks a walk in "
+     "progress instead of showing whatever was true when someone last ran the export by hand.",
+     "Now strip / Decision lens (live)"),
     ("view", "graph_viewer.html",
      "The artifact. Six lenses over one graph, a scrubber over transaction time, and the live now strip.",
      "-"),
@@ -452,7 +461,7 @@ def build(now=None):
         memory_by_char[c] = memory_section(c, block.get("node"), hops, now)
 
     live_chars = [c for c in characters if (now_by_char.get(c) or {}).get("node")]
-    view = {
+    return {
         "schema": SCHEMA,
         "generated_at": now,
         "generated_iso": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
@@ -503,7 +512,6 @@ def build(now=None):
             "manner are all reconstructed exactly.",
         ],
     }
-    return view
 
 
 def main():
