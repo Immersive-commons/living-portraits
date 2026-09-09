@@ -451,3 +451,72 @@ def test_summary_of_an_empty_store_is_zeroes_not_none():
     store, _ = gp.reconcile({"a": {}}, [], {}, [], store=gp._empty_store(), now=0.0)
     s2 = gp.summary(store, now=86400.0)
     assert s2["nodes_dead"] == 1 and abs(s2["oldest_death_age_days"] - 1.0) < 1e-9
+
+
+# ------------------------------------------------------------ swallowed failures (#9)
+# The provenance layer answers "what could this character do last month". Four bare
+# `except: pass` meant a break anywhere along it returned a confidently wrong answer
+# instead of an error. Fail-open is still the contract -- the wall must not go dark --
+# but AGENTS.md rule 4 is "absence is a skip WITH A REASON", and a bare pass has none.
+# These pin the reason, in both directions: it must appear on failure, and the happy
+# path must stay clean.
+
+def test_reconcile_records_why_it_failed(monkeypatch):
+    """Its counters are all zero on a crash, so without this a caller cannot tell
+    'nothing changed' from 'this never ran'."""
+    def boom(*a, **k):
+        raise ValueError("reconcile exploded")
+    monkeypatch.setattr(gp, "_reconcile_one", boom)
+    store, stats = gp.reconcile({}, [], {"a": {}}, [{"id": "x"}], store=gp._empty_store())
+    assert "reconcile exploded" in stats.get("error", "")
+    assert stats["nodes_invalidated"] == 0          # still fail-open, still returns
+
+
+def test_reconcile_says_nothing_when_it_works():
+    """An error key on the happy path would train everyone to ignore it."""
+    _store, stats = gp.reconcile({}, [], {"a": {}}, [{"id": "x"}], store=gp._empty_store())
+    assert "error" not in stats
+
+
+def test_merge_history_reports_instead_of_lying():
+    """Handing back the live graph says 'there is no history' to a question ABOUT
+    history. That is a wrong answer, not a degraded one, so the caller has to hear it."""
+    seen = []
+    bad_store = {"nodes": 5}                        # 5.items() -> AttributeError
+    n, e = gp.merge_history({"a": {}}, [{"id": "x"}], bad_store, on_error=seen.append)
+    assert seen, "merge_history failed and told nobody"
+    assert n == {"a": {}} and len(e) == 1           # fail-open preserved
+
+
+def test_merge_history_without_a_callback_is_unchanged():
+    """Every existing caller omits it; none of them may start raising."""
+    n, e = gp.merge_history({"a": {}}, [{"id": "x"}], {"nodes": 5})
+    assert n == {"a": {}} and len(e) == 1
+
+
+def test_a_graph_does_not_claim_history_it_failed_to_merge(tmp_path, monkeypatch, capsys):
+    """The bug this is really about. video_graph.load() set g.history = True right
+    after a merge that swallows its own failure, so the graph reported having history
+    and had none.
+
+    The failure is injected at merge_history rather than through a corrupt store file,
+    because load_store() normalises anything malformed into an empty store and never
+    raises -- so a bad file on disk cannot reach this path. What can reach it is a
+    malformed LIVE graph, which is what the stub stands in for.
+    """
+    import video_graph as vg
+
+    gpath = tmp_path / "video_graph.json"
+    gpath.write_text(json.dumps({"nodes": {"a": {}}, "edges": [{"id": "x"}]}),
+                     encoding="utf-8")
+
+    def broken(nodes, edges, store, on_error=None):
+        if on_error:
+            on_error("RuntimeError('merge exploded')")
+        return dict(nodes), list(edges)              # the real fail-open return
+    monkeypatch.setattr(vg._prov, "merge_history", broken)
+
+    g = vg.VideoGraph.load(gpath, history=True, store_path=tmp_path / "prov.json")
+    assert g.history is False, "claimed history after a failed merge"
+    out = capsys.readouterr().out
+    assert "history unavailable" in out and "merge exploded" in out

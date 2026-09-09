@@ -265,19 +265,32 @@ def reconcile(prev_nodes, prev_edges, new_nodes, new_edges, *,
 
         stats["nodes_dead"] = len(store["nodes"])
         stats["edges_dead"] = len(store["edges"])
-    except Exception:
-        pass
+    except Exception as e:
+        # Fail-open stays: a broken reconciliation must not stop a build. But the
+        # counters above are all still ZERO here, and a caller reading them cannot
+        # tell "nothing changed" from "this crashed". Almost nothing in that body
+        # SHOULD be able to raise -- it is dict work over data validated upstream --
+        # which is exactly why swallowing it hides a real bug instead of absorbing
+        # an expected one. AGENTS.md rule 4: absence with a reason.
+        stats["error"] = repr(e)
     return store, stats
 
 
 # --------------------------------------------------------------------------- history view
-def merge_history(nodes, edges, store):
+def merge_history(nodes, edges, store, on_error=None):
     """(nodes, edges) = the LIVE graph plus everything the store says used to be there,
     each dead entry carrying `invalidated`. Returns NEW containers; the live ones handed in
     are never mutated, so a caller holding the live view keeps holding the live view.
 
     This is what answers "what could this character do last month" -- and the reason the
-    dead records are stored whole rather than as bare ids."""
+    dead records are stored whole rather than as bare ids.
+
+    `on_error(repr)` fires if the merge fails. It exists because the fail-open return
+    here is a WRONG answer rather than a degraded one: handing back the live graph says
+    "there is no history" to a question about history, and the caller then records that
+    it HAS history. video_graph.load() used to set `g.history = True` on exactly that
+    path. Callers that do not care may omit it and get the old behaviour.
+    """
     out_nodes = dict(nodes or {})
     out_edges = list(edges or [])
     try:
@@ -295,7 +308,9 @@ def merge_history(nodes, edges, store):
             d.setdefault("id", eid)
             d[INVALIDATED] = rec.get(INVALIDATED)
             out_edges.append(d)
-    except Exception:
+    except Exception as e:
+        if on_error is not None:
+            on_error(repr(e))
         return dict(nodes or {}), list(edges or [])
     return out_nodes, out_edges
 
