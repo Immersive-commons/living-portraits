@@ -14,11 +14,17 @@
 #
 # cwd is resolved relative to THIS file's directory (oracle_gate.py contract), so "." is
 # health/ and ".." is the project root.
+#
+# The interpreter is "python", not an absolute path. It used to be one operator's
+# monorepo venv, spelled out nine times in a PUBLISHED file -- so the oracle ran on
+# exactly one machine and the public repo carried a home directory. Whatever python is
+# on PATH is the right answer here: the detectors are stdlib-only and reach the host
+# over ssh, so they do not need the project's venv at all.
 checks:
   # 1. The wall is painting. Process liveness is NOT the check -- the player has clean-exited
   #    on a fullscreen game before, and a live process printing nothing is a dark wall.
   - id: lp-panels-alive
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "panels_alive"]
+    cmd: ["python", "checks.py", "panels_alive"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK panels_alive: PASS"
@@ -28,7 +34,7 @@ checks:
   #    commanding_aether -- one exit, an unreachable goal, and a mood that suppresses
   #    transitions -- and it read as "broken" on the wall long before anything alerted.
   - id: lp-walker-moving
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "walker_moving"]
+    cmd: ["python", "checks.py", "walker_moving"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK walker_moving: PASS"
@@ -38,7 +44,7 @@ checks:
   #    the fix of 2026-08-10: the goal menu and the walk must read the same edge set. When
   #    they did not, one pose stayed unvisited for its entire 76-day life.
   - id: lp-goal-reachable
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "goal_reachable"]
+    cmd: ["python", "checks.py", "goal_reachable"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK goal_reachable: PASS"
@@ -48,7 +54,7 @@ checks:
   #    provenance while keeping its numbers -- the data stayed right and stopped being able
   #    to say how it knew.
   - id: lp-lived-integrity
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "lived_integrity"]
+    cmd: ["python", "checks.py", "lived_integrity"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK lived_integrity: PASS"
@@ -58,7 +64,7 @@ checks:
   #    production for MONTHS -- one of two live characters running with no persona at all --
   #    and nothing on either side could see it.
   - id: lp-deploy-drift
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "deploy_drift"]
+    cmd: ["python", "checks.py", "deploy_drift"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK deploy_drift: PASS"
@@ -67,7 +73,7 @@ checks:
   # 6. The brain is not quietly failing. 165 gateway 401s and 62 unparseable replies had
   #    accumulated unnoticed, each one a tick where a character stood still.
   - id: lp-error-rate
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "error_rate"]
+    cmd: ["python", "checks.py", "error_rate"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK error_rate: PASS"
@@ -80,7 +86,7 @@ checks:
   #    weather, the hour outside, or the building they hang in, and every tick looked
   #    perfectly healthy. Fail-soft without a detector is just silence.
   - id: lp-world-context
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "world_context"]
+    cmd: ["python", "checks.py", "world_context"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK world_context: PASS"
@@ -90,7 +96,7 @@ checks:
   #    window nobody watches, so if it silently stopped the only symptom is a character that
   #    slowly stops having opinions -- which no one would notice for weeks.
   - id: lp-reflection-fired
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "reflection_fired"]
+    cmd: ["python", "checks.py", "reflection_fired"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK reflection_fired: PASS"
@@ -104,7 +110,7 @@ checks:
   #    rather than a dead one. This is the second outage of that exact shape -- see the
   #    27-day world-seam 401 in CHANGELOG v0.4.0 -- so it is the second detector for it.
   - id: lp-generation-healthy
-    cmd: ["C:/Users/jtole/Documents/2026/life/.venv/Scripts/python.exe", "checks.py", "generation_healthy"]
+    cmd: ["python", "checks.py", "generation_healthy"]
     cwd: "."
     expect_rc: 0
     stdout_contains: "CHECK generation_healthy: PASS"

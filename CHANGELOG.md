@@ -155,7 +155,7 @@ These are what it found. Each one had a citation, and the citation is what made 
   rewrite. Also corrected there: `_preview_graph.py` is 506 lines, not 460.
 
 Two more were found and are **not** fixed here, because both are behaviour rather than prose:
-`director/voice_eval.py:47` still pins `JUDGE_MODEL = "glm-4.5-air"`, which `research/FACTS.md:60`
+`director/voice_eval.py:47` still pins `JUDGE_MODEL = "glm-4.5-air"`, which `_research/FACTS.md:60`
 declares stale wherever it appears — but changing a live judge model is a behavioural change, not
 a doc fix. And `AUTONOMY.md`, cited for the single-writer invariant in three places, lives in the
 private tree and is not published here; ARCHITECTURE now says so rather than dangling.
@@ -374,7 +374,7 @@ private tree and is not published here; ARCHITECTURE now says so rather than dan
 0.3.0 had just made the honest version of the first one *stronger* than the original.
 
 ### Fixed
-- **`research/FACTS.md` [LP-CAST] was false.** It claimed *"Relationships are graph context,
+- **`_research/FACTS.md` [LP-CAST] was false.** It claimed *"Relationships are graph context,
   not just decoration"*; production has **zero cross-character edges** and the rivalry lived
   in `gallery.yaml` prose. Replaced with what is now true and is the better claim:
   **relationships are reconstructed at read time, per character, from what each one can
@@ -391,7 +391,7 @@ private tree and is not published here; ARCHITECTURE now says so rather than dan
   is stated.
 - **`glm-4.5-air` → `glm-5.1`** across FACTS.md, AUTONOMY.md, the deck chunk and speaker
   notes. It changed in July and nothing said so.
-- **Deck slide 05 rebuilt** from its chunk (`deck/_build.py`, 12 slides) so the talk no longer
+- **Deck slide 05 rebuilt** from its chunk (`deck/_build.py (internal)`, 12 slides) so the talk no longer
   carries the retracted line. The speaker note now says what to answer if someone asks why the
   wording changed. **Not deployed** — that stays a human step.
 
@@ -428,7 +428,7 @@ Midjourney path that has returned 403 on every call since 2026-07-02. Push stays
 read the last five of them (`JOURNAL_TAIL = 5`) — about 35 minutes of remembered life,
 0.04% of it. Phineas had wanted `jealous_glare` 2,147 times, 19% of every decision he has
 ever made, with no mechanism that could notice. Diagnosed in
-[`_audit/CONTEXT_GRAPH_AUDIT.md`](_audit/CONTEXT_GRAPH_AUDIT.md), method chosen against
+[`_audit/CONTEXT_GRAPH_AUDIT.md (internal)`](_audit/CONTEXT_GRAPH_AUDIT.md (internal)), method chosen against
 [`_research/CONTEXT_GRAPHS_FINDINGS.md`](_research/CONTEXT_GRAPHS_FINDINGS.md).
 
 ### Added

@@ -12,8 +12,12 @@ CONTRACT (this is what makes them detectors and not opinions):
   * DETERMINISTIC -- the same world gives the same verdict twice in a row. Enforced by
     `python main.py verify probe health/oracle.yaml`, which runs everything twice and calls a
     flapping check invalid. So thresholds are coarse and counts are read over fixed windows.
-  * A check NEVER repairs anything. Detection and repair are separate so that a repair can
-    never quietly redefine health -- scripts/maintain.py owns repair, under policy.
+  * A check NEVER repairs anything. Detection and repair are separate so that a repair
+    can never quietly redefine health. THE REPAIR HALF IS NOT BUILT: this line used to
+    name `scripts/maintain.py` (not in this repo) as its owner, and no such file has
+    ever existed in either tree. The separation is real -- nothing here repairs -- but there is no
+    policy engine on the other side of it yet, and saying otherwise described a design
+    rather than the system.
   * Unreachable host is a FAIL with its own reason, not a crash and not a pass. A checker
     that cannot see the thing it checks must never report green.
 

@@ -757,7 +757,7 @@ def _selftest() -> int:  # noqa: PLR0915  -- module self-test: a flat sequence o
                 _orchestrate=fake,
             )
             md_file = CHARS_DIR / "inkwell.md"
-            check(res.md_written and md_file.exists(), "add_character WROTE prompts/characters/inkwell.md")
+            check(res.md_written and md_file.exists(), "add_character WROTE prompts/characters/inkwell.md (created at runtime)")
             md_text = md_file.read_text(encoding="utf-8")
             check(md_text.startswith("# The Inkwell Imp"), "md heading uses the display name")
             check("Theme:" in md_text and "Voice:" in md_text, "md carries Theme: + Voice: header lines")
