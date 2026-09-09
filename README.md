@@ -119,6 +119,10 @@ hidden failures:
   it breaking the invariants that are not expressible in code.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — setup, the rules that matter, and what
   a change has to prove before it lands.
+- **[install/ENVIRONMENT.md](install/ENVIRONMENT.md)** — every variable the code
+  reads from the environment, its default, and what happens when it is unset. None
+  are needed for the four commands above; they matter when you point the system at
+  a service.
 - **[ROADMAP.md](ROADMAP.md)** — where this is going.
 - **[health/README.md](health/README.md)** — what "fine" means, mechanically, and
   why every detector in there is the fossil of an incident a human had to notice.
@@ -143,7 +147,8 @@ drift from the show.
 
 The panel player is Windows-first: it pins a borderless SDL window to the desktop
 origin and an LED sending card grabs sub-rects out of it. `install/` carries the
-host bring-up, the scheduled-task definitions, and the watchdog.
+host bring-up, the scheduled-task definitions, the watchdog, and
+[ENVIRONMENT.md](install/ENVIRONMENT.md).
 
 You do not need any of that to work on the system. The entire render path is
 exercised headless through `clip_player.DummySurface`, which is why the test

@@ -83,6 +83,7 @@ under its own policy, acts. Merging the two lets a repair quietly redefine what
 | Watching a walk happen | `scripts/live_view.py` | Runs the real walker headless plus the exporter on a timer. It adds no writer — that is why it is safe to loop. Keep it that way. |
 | Clip generation | `pipeline/` | Needs a CUDA GPU and `requirements-gen.txt`. Almost certainly not your task. |
 | Panel geometry or colour | `panels.yaml` | Config, not code. Do not hardcode a rect. |
+| What the system reads from the environment | `install/ENVIRONMENT.md` | All 28 variables with defaults. Secrets have a file fallback under `~/.config/living-portraits/` or `data/mind/`; never commit one. |
 
 **`_preview_graph.py` is the production player**, despite the `_preview_` prefix
 that groups it with throwaway demos. It is what the `lp-preview` scheduled task
