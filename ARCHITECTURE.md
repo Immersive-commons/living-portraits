@@ -40,8 +40,8 @@ same pass.
    `scripts/release.py:55` lists it as a release-sync target). Adding a second writer to any
    of them is the way to break this system.
 6. Precedence for what a portrait does: **circadian (clock) > mind (LLM goal) > walk**.
-   Resolved in `_preview_graph.py:221-269`; in production (`--policy`) it is
-   `_preview_graph.py:271-301`.
+   Resolved in `_preview_graph.py:240-269`; in production (`--policy`) it is
+   `_preview_graph.py:290-301`.
 7. `data/clips/video_graph.json` is authoritative. `video_graph.live.json` is a stale local
    artifact that does not exist on hil — ignore it.
 8. `runtime/video_graph.py` is the live graph. `runtime/clip_graph.py` is the older,
@@ -65,9 +65,9 @@ lp-preview  (scheduled task, AtLogon, MultipleInstances=IgnoreNew)
           --b-pose idle --b-tp 0.4 --mind --max-idle-secs 0 --policy
 
   every frame (10 fps, _preview_graph.py:58, :413-451):
-    GraphCycler.frame()                 _preview_graph.py:342
+    GraphCycler.frame()                 _preview_graph.py:361
       -> blit one gif frame per panel
-      -> at clip end: _pick()           _preview_graph.py:221
+      -> at clip end: _pick()           _preview_graph.py:240
            reads data/mind/intent.json  (mtime-cached, :126-138)
            writes data/mind/pose/<char>.json when node or dwell changes (:140-158)
            hot-reloads video_graph.json on mtime change (:160-186)
@@ -318,7 +318,7 @@ graph size, lock state, both budgets, and cooldown (`autogen.py:832-936`).
 
 | | Legacy path (`--mind` only) | **Production path (`--policy`)** |
 |---|---|---|
-| entry | `_preview_graph.py:221` `_pick()` | `_pick()` short-circuits at `:203-204` → `_pick_policy()` `:271` |
+| entry | `_preview_graph.py:240` `_pick()` | `_pick()` short-circuits at `:203-204` → `_pick_policy()` `:290` |
 | clock | `circadian.decide(...)` `:205`; `"force"` wins outright `:207-209` | night only: `circadian.is_night` `:244`, `decide` `:245`, `"force"` wins `:248-250` |
 | LLM goal | `mind.decide(...)` `:214`; `"force"` wins `:216-218` | folded in as a *weight*: `goal` + `mood` + `route` passed to `policy.choose` `:257-262` |
 | walk | random idle/transition with anti-pendulum `:219-236` | one softmax, `runtime/policy.py:200-222` |

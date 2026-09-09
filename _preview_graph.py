@@ -111,6 +111,25 @@ class GraphCycler:
         #   * day / going-to-bed beats: max_frames (~5s) -> snappy, trims the tail.
         #   * SLEEPING (dwelling at the sleep pose): sleep_idle_frames (~12s, loops the clip) ->
         #     each animation holds longer so it reads restful, not flickering.
+        # THESE ARE TUNED TO THE CLIP'S FRAME COUNT, and nothing else says so. The
+        # constants are in SECONDS, the thing they have to match is a FRAME COUNT, and
+        # the bridge between them is FPS plus the source clip's own fps and duration --
+        # none of which appear anywhere near here.
+        #
+        # Measured 2026-09-08: every clip in data/clips/_proto is 121 frames, which is
+        # kling3_0 at 24fps x 5s. sleep_idle_secs=12.0 x FPS=10 gives 120, so at the
+        # sleep pose a clip plays through almost exactly once and then advances. That is
+        # the intent (see the note above), and it is correct by ONE FRAME.
+        #
+        # A source at 30fps would produce ~151-frame clips. 120 then cuts at 79%, and
+        # idles are the start == end case -- the clip leaves the anchor and RETURNS --
+        # so it would advance before returning, and the next clip would start from a
+        # pose the previous one never got back to. Visible, nightly, with nothing
+        # raising a hand. The same breaks if CLIP_SECONDS moves off 5.
+        #
+        # If you change the model, the clip length, or FPS, re-check this. See #36:
+        # deriving from the loaded clip's len(fr) is the real fix and wants #25's tests
+        # under it first.
         self.max_frames = int(max_idle_secs * FPS) if max_idle_secs and max_idle_secs > 0 else 0
         self.sleep_idle_frames = int(sleep_idle_secs * FPS) if sleep_idle_secs and sleep_idle_secs > 0 else 0
         self.sleep_node = circadian.sleep_node(self.spec, character)   # "<char>:sleep" / ":pod" dwell pose
