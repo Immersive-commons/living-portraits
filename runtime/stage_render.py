@@ -52,14 +52,29 @@ import numpy as np
 # Reuse the surface abstraction, blit, and resize helpers from the sibling
 # renderer so the rig view and this view share identical RGB<->surface plumbing
 # (and the same import-guarded pygame/opencv handling).
-from clip_player import (  # type: ignore
-    _HAVE_CV2,
-    _HAVE_PYGAME,
-    _blit_rgb_to_surface,
-    _resize_rgb,
-    _surface_size,
-    pygame,  # None when pygame is absent (import-guarded in clip_player)
-)
+# Both loaders have to work. player.py:35 puts runtime/ ON sys.path and imports
+# bare; _preview_graph.py:25 puts the REPO ROOT on it and imports the package.
+# runtime/policy.py:52-59 carries the same shape for the same reason. Normalising
+# to one spelling breaks the other, and player.py's try/except would swallow it:
+# the wall would fall through to the text dev-view and keep running.
+try:                                     # player.py:35 -- runtime/ on sys.path
+    from clip_player import (  # type: ignore
+        _HAVE_CV2,
+        _HAVE_PYGAME,
+        _blit_rgb_to_surface,
+        _resize_rgb,
+        _surface_size,
+        pygame,  # None when pygame is absent (import-guarded in clip_player)
+    )
+except ImportError:                      # _preview_graph.py:25 -- repo root on sys.path
+    from runtime.clip_player import (  # type: ignore
+        _HAVE_CV2,
+        _HAVE_PYGAME,
+        _blit_rgb_to_surface,
+        _resize_rgb,
+        _surface_size,
+        pygame,
+    )
 
 try:  # opencv is the high-quality decode path; numpy fallback covers its absence
     import cv2  # type: ignore

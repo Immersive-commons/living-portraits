@@ -288,7 +288,7 @@ Ordered by (value / effort), and where it differs from the audit's ranking, why.
 
 | # | Change | File | Effort | Grounded in |
 |---|---|---|---|---|
-| 1 | Neighbour line in the prompt from the other character's `pose/*.json` + last journal entry. **Keep it per-character and asymmetric** — Phineas's read of Seraphina need not match hers of him. | `heartbeat.py:239` `_build_user_prompt` | ~1h | `2304.03442` (relations reconstructed at retrieval), `2603.20750` (subjective graphs) |
+| 1 | Neighbour line in the prompt from the other character's `pose/*.json` + last journal entry. **Keep it per-character and asymmetric** — Phineas's read of Seraphina need not match hers of him. | `heartbeat.py:359` `_build_user_prompt` | ~1h | `2304.03442` (relations reconstructed at retrieval), `2603.20750` (subjective graphs) |
 | 2 | Scored retrieval replacing `JOURNAL_TAIL = 5`: recency decay + `-log2 p(goal)` importance + **BFS-hop relevance** + `k` by token budget. Plus the one aggregate count line. | `heartbeat.py:72,207` new `journal_score.py` | ~4h | `2603.02473` (retrieval dominates; raw storage wins), `2304.03442`, `2311.13743` (span as a knob) |
 | 3 | `frontier = reachable_poses − visited_poses`, one line in the prompt. | `heartbeat.py` + `pathfind.py` | ~30min | `2411.17735` |
 | 4 | Nightly reflection appended to the same JSONL with `kind: "reflection"`, **triggered by mood-band shift or a broken repetition run, not the clock**. | `circadian.py` / `heartbeat.py` | ~4h | `2604.12285` (GAM, semantic-shift gating), `2304.03442` |

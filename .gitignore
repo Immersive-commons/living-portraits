@@ -12,4 +12,9 @@ pipeline/vendor/
 # article assets are deliberate deliverables — keep them tracked despite *.png above
 !_article/assets/
 !_article/assets/*.png
+.pytest_cache/
 .ruff_cache/
+
+# agent session config, not repo content. scripts/release.py:52 already excludes
+# .claude from the published subset; this keeps it out of git in the first place.
+.claude/
